@@ -1,0 +1,57 @@
+{
+  "name": "the-spring",
+  "version": "1.0.0",
+  "private": true,
+  "homepage": "https://github.com/wenxig/the-spring",
+  "bugs": {
+    "url": "https://github.com/wenxig/the-spring/issues",
+    "email": "wenxinguo12@gmail.com"
+  },
+  "license": "MIT",
+  "author": {
+    "name": "wenxig",
+    "email": "wenxinguo12@gmail.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wenxig/the-spring.git"
+  },
+  "type": "module",
+  "scripts": {
+    "firmware:bootstrap": "node scripts/firmware.mjs bootstrap",
+    "firmware:build": "node scripts/firmware.mjs build",
+    "firmware:configure": "node scripts/firmware.mjs configure",
+    "firmware:flash": "node scripts/firmware.mjs flash",
+    "firmware:lint": "node scripts/firmware.mjs lint",
+    "firmware:monitor": "node scripts/firmware.mjs monitor",
+    "start:all": "scripts/start-all.sh",
+    "native:bootstrap": "scripts/bootstrap-native.sh",
+    "native:build": "scripts/native.sh build",
+    "native:configure": "scripts/native.sh configure",
+    "native:format": "scripts/native.sh format",
+    "native:format-check": "scripts/native.sh format-check",
+    "native:lint": "scripts/native.sh lint",
+    "native:sanitize": "scripts/native.sh sanitize",
+    "native:test": "scripts/native.sh test"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "catalog:",
+    "@commitlint/config-conventional": "catalog:",
+    "@types/node": "catalog:",
+    "commitlint-plugin-cspell": "catalog:",
+    "cspell": "catalog:",
+    "oxlint-tsgolint": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:",
+    "vue-tsc": "catalog:"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "11.20.0",
+      "onFail": "download"
+    }
+  }
+}
