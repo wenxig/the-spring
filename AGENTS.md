@@ -29,6 +29,7 @@ In cloud environments, use `pnpm exec vp`.
 - 优先使用`oop`(面向对象)+`RAII`思想编写代码，但要避免过度封装，组合优于继承
 - 使用`依赖注入`思想优化耦合，但也要避免过度封装。
 - 使用类似`条件反转`等技巧减少代码嵌套，但不要过度的不加分辨的使用
+- 全链路使用clang和cpp26，能用前沿语法就用前沿语法，对于其他语言也是这样。定义变量优先使用`auto`，其他所有可推导的优先走自动推倒
 
 ### 格式
 
@@ -46,9 +47,15 @@ In cloud environments, use `pnpm exec vp`.
 - 每个提交只包含对应任务所需的改动，不得混入无关文件；提交前必须检查暂存区内容。
 - 所有计划放入`.planning`文件夹下
 
+### 物理架构
+
+- 由于这是一个针对嵌入式的项目，以下是物理硬件描述
+- `微雪 ESP32-P4开发板`[文档](https://docs.waveshare.net/ESP32-P4-WIFI6-DEV-KIT)，它作为主要的控制板统领传感器和`ec600x`以及一块通过spi连接的水墨屏
+- `移远 EC600X开发板`[文档](https://developer.quectel.com/doc/quecpython/Dev_board_guide/zh/ec600x-evb.html)，它是一块4g/volte/cat等围绕移动网络的开发版。内部使用ec600m芯片
+
 ## 项目概览
 
 采用 **pnpm monorepo** 架构。
 
 - **线上仓库**: <https://github.com/wenxig/the-spring.git>
-- 全链路使用clang和cpp26，用`auto`和lambda多一些
+- **包位置**: 只有脚本子包才要放到`scripts`下，其他所有子包，无论什么语言编写，全部做成小repo放到`packages`下，项目根应当是清爽的

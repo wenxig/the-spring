@@ -41,5 +41,5 @@ if(ZERO_PATH_ENABLE_SANITIZERS AND CMAKE_SYSTEM_NAME STREQUAL "Darwin")
   target_link_options(zero_path_project_options INTERFACE -fsanitize=address,undefined)
 endif()
 
-add_subdirectory(packages/audio-protocol)
-add_subdirectory(packages/serial-bridge)
+# Subdirectories for packages will be added as they are created
+# e.g.: add_subdirectory(packages/ec600m-driver)

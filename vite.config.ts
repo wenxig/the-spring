@@ -34,8 +34,6 @@ export default defineConfig({
     exclude: ['**/node_modules/**', '**/.git/**', '.agents/**'],
     projects: [
       { test: { name: 'root', environment: 'node', include: ['script/**/*.test.ts'] } },
-      'packages/tel-core',
-      'packages/phone-simulator-gateway',
     ],
   },
 })
