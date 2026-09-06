@@ -1,6 +1,0 @@
-version: "1.0.0"
-description: "Quectel EC600M 4G Cat 1 bis cellular modem driver for ESP-IDF (ESP32-P4)"
-url: "https://github.com/wenxig/the-spring"
-dependencies:
-  idf: ">=5.4"
-  espressif/esp_modem: "^1.5.0"

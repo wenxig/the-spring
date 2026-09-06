@@ -1,0 +1,13 @@
+[project]
+name = "ec600x-firmware"
+version = "0.1.0"
+description = "QuecPython embedded firmware project for Quectel EC600X-EVB (EC600M Cat 1 bis)"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+select = ["E", "F", "W"]
+ignore = ["E501"]

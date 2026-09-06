@@ -32,8 +32,6 @@ export default defineConfig({
       thresholds: { lines: 75, functions: 75, branches: 70, statements: 75 },
     },
     exclude: ['**/node_modules/**', '**/.git/**', '.agents/**'],
-    projects: [
-      { test: { name: 'root', environment: 'node', include: ['script/**/*.test.ts'] } },
-    ],
+    projects: [{ test: { name: 'root', environment: 'node', include: ['script/**/*.test.ts'] } }],
   },
 })

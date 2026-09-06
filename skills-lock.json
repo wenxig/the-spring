@@ -6,6 +6,30 @@
       "sourceType": "github",
       "skillPath": "skills/use-ai-sdk/SKILL.md",
       "computedHash": "da25c27a274ef2b71017c255f95a26350d2519765a75cb54ee1a37872b121dab"
+    },
+    "async-python-patterns": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "skillPath": "plugins/python-development/skills/async-python-patterns/SKILL.md",
+      "computedHash": "e0f03523d989848310c93a599541948474f24ccaa04c8d52ed1b45cc5adaebde"
+    },
+    "cpp-coding-standards": {
+      "source": "affaan-m/ecc",
+      "sourceType": "github",
+      "skillPath": "skills/cpp-coding-standards/SKILL.md",
+      "computedHash": "e8c59d13fe23b088e24dcf6b77845823c5b5636b5c52434550f9b1837bc44ac3"
+    },
+    "cpp-testing": {
+      "source": "affaan-m/ecc",
+      "sourceType": "github",
+      "skillPath": "skills/cpp-testing/SKILL.md",
+      "computedHash": "fbe37695056aa5cf9454f8cf6d883f38c3bca0324ca7aeb288db2fe3b887e97d"
+    },
+    "python-patterns": {
+      "source": "affaan-m/ecc",
+      "sourceType": "github",
+      "skillPath": "skills/python-patterns/SKILL.md",
+      "computedHash": "3ce7d51e18d3e2fa79635e569e73a8d269bc484ff1095fae7c414543f023e95e"
     }
   }
 }

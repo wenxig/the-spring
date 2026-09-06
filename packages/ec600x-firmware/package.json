@@ -1,0 +1,7 @@
+{
+  "name": "@the-spring/ec600x-firmware",
+  "version": "0.1.0",
+  "private": true,
+  "description": "QuecPython firmware project for Quectel EC600X-EVB (EC600M Cat 1 bis)",
+  "type": "module"
+}
