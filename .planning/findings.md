@@ -8,3 +8,6 @@
 - 移远官方 QPYcom 工具仅支持 Windows 与 Ubuntu (18/22/24)，无 macOS 原生构建；官方 VSCode 插件同样标注仅支持 Windows。
 - 移远官方在 macOS 下推荐且开源维护的跨平台 GUI 方案是 `thonny-quecpython` (通过 pip/uv 安装 Thonny 插件)。
 - 移远模组在 macOS 下连接后暴露标准串口及 MicroPython REPL，可编写基于 pyserial 的 CLI 传输脚本或通过 Thonny 界面操作。
+- 严格类型检查采用项目内 `typings/`，不依赖开发机用户目录中的 Thonny 类型桩；`pyproject.toml` 使用 Pyright `typeCheckingMode = "strict"`。
+- QuecPython 固件不加载 `typing`：源码通过 `try/except ImportError` 设置类型检查开关，协议导入放在 `TYPE_CHECKING` 分支，类型注解使用字符串以避免设备运行时求值。
+- `reportMissingModuleSource = "none"` 仅用于设备专属模块的 `.pyi` 类型桩没有 CPython 源码这一事实；`reportMissingImports`、未知类型、缺失参数类型和不可达代码诊断仍保持 error。

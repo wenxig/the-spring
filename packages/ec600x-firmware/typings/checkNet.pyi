@@ -1,0 +1,3 @@
+"""QuecPython checkNet API used by the EC600M firmware."""
+
+def waitNetworkReady(timeout: int = ...) -> tuple[int, int]: ...

@@ -4,14 +4,30 @@
 """
 
 import _thread
+
+try:
+    import typing
+except ImportError:
+    _type_checking = False
+else:
+    _type_checking = typing.TYPE_CHECKING
+
+if _type_checking:
+    from type_contracts import CallbackArgs, Platform, SmsCallback
+
+
 class SmsService:
-    def __init__(self, platform, on_message_cb=None):
+    def __init__(
+        self,
+        platform: "Platform",
+        on_message_cb: "SmsCallback | None" = None,
+    ) -> None:
         self._sms = platform.sms
         self._on_message_cb = on_message_cb
         self._init_storage()
         self._register_callback()
 
-    def _init_storage(self):
+    def _init_storage(self) -> None:
         try:
             # 统一存储到 SIM 卡 ("SM")
             self._sms.setSaveLoc("SM", "SM", "SM")
@@ -19,10 +35,10 @@ class SmsService:
         except Exception as e:
             print("[SMS] Failed to set storage loc:", e)
 
-    def _register_callback(self):
-        def _cb(args):
+    def _register_callback(self) -> None:
+        def _cb(args: "CallbackArgs") -> None:
             # args: (sim_id, index, storage)
-            if not isinstance(args, (tuple, list)):
+            if len(args) < 2 or not isinstance(args[1], int):
                 return
             sim_id = args[0]
             index = args[1]
@@ -34,10 +50,10 @@ class SmsService:
         except Exception as e:
             print("[SMS] Failed to register SMS callback:", e)
 
-    def _handle_incoming(self, index):
+    def _handle_incoming(self, index: int) -> None:
         try:
             res = self._sms.searchTextMsg(index)
-            if res != -1 and res is not None:
+            if isinstance(res, tuple):
                 phone, content, length = res
                 print("[SMS] From: {}, Length: {}, Content: {}".format(phone, length, content))
                 if self._on_message_cb:
@@ -45,7 +61,7 @@ class SmsService:
             else:
                 # 尝试以 PDU 解析
                 pdu_hex = self._sms.searchPduMsg(index)
-                if pdu_hex != -1 and pdu_hex is not None:
+                if isinstance(pdu_hex, (str, bytes)):
                     pdu_len = self._sms.getPduLength(pdu_hex)
                     decoded = self._sms.decodePdu(pdu_hex, pdu_len)
                     phone, content = decoded[0], decoded[1]
@@ -57,7 +73,7 @@ class SmsService:
         except Exception as e:
             print("[SMS] Error processing message index {}: {}".format(index, e))
 
-    def send_text(self, phone_number, message, encoding="UCS2"):
+    def send_text(self, phone_number: str, message: str, encoding: str = "UCS2") -> bool:
         """发送短信，中文必须为 UCS2，英文数字可用 GSM"""
         try:
             ret = self._sms.sendTextMsg(phone_number, message, encoding)

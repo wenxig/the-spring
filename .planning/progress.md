@@ -14,3 +14,8 @@
 - 针对命令行无头自动化需求，实现并集成了基于 MicroPython/QuecPython Raw REPL 协议的轻量 CLI 刷机工具 `packages/ec600x-firmware/tools/flash.py`。
 - 在 `packages/ec600x-firmware/package.json` 中配置了 `pnpm run ports` 与 `pnpm run flash` 脚本，可无缝结合 `pnpm run build` 实现终端一键自动化部署。
 - 更新 `packages/ec600x-firmware/README.md`，添加 CLI 自动部署命令与示例。
+- 启用 Pyright strict，并在 `typings/` 固化项目使用的 QuecPython 与宿主机 API 类型契约。
+- 将 Ruff 扩展为导入、命名、升级、bug 检测和简化规则；以 `uv.lock` 锁定开发工具依赖。
+- 为固件、部署工具和测试补齐严格类型标注；类型契约仅在类型检查分支导入，保持 QuecPython 运行时兼容。
+- `pnpm run check` 通过：格式检查、Ruff lint、Pyright（0 errors/0 warnings/0 informations）和 pytest（3 passed）。
+- `python3 -m compileall -q src` 通过；构建并校验部署归档通过，最新 ZIP SHA-256 为 `eb904fe8b53e776b00cb9e0844259b80ed0f1be06f8b956a536ab52c2e5370d7`。

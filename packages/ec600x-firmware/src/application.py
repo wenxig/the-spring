@@ -1,6 +1,7 @@
 """Application composition and long-running lifecycle."""
 
 import gc
+
 import utime
 from machine import WDT
 
@@ -8,16 +9,31 @@ from services.network import NetworkService
 from services.sms import SmsService
 from services.volte import VolteService
 
+try:
+    import typing
+except ImportError:
+    _type_checking = False
+else:
+    _type_checking = typing.TYPE_CHECKING
+
+if _type_checking:
+    from type_contracts import CallCallback, Platform, SmsCallback
+
 
 class Application:
-    def __init__(self, platform, on_sms=None, on_call=None):
+    def __init__(
+        self,
+        platform: "Platform",
+        on_sms: "SmsCallback | None" = None,
+        on_call: "CallCallback | None" = None,
+    ) -> None:
         self._platform = platform
         self._on_sms = on_sms
         self._on_call = on_call
-        self._network = None
-        self._watchdog = None
+        self._network: "NetworkService | None" = None
+        self._watchdog: "WDT | None" = None
 
-    def start(self):
+    def start(self) -> None:
         self._network = NetworkService(self._platform)
         self._network.wait_connected(timeout_sec=45)
         SmsService(self._platform, on_message_cb=self._on_sms)
@@ -27,7 +43,7 @@ class Application:
         except Exception as error:
             print("[App] WDT unavailable:", error)
 
-    def run_forever(self):
+    def run_forever(self) -> None:
         self.start()
         print("Telephony services running...")
         loop_count = 0
@@ -35,6 +51,8 @@ class Application:
             if self._watchdog:
                 self._watchdog.feed()
             if loop_count % 30 == 0:
+                if self._network is None:
+                    raise RuntimeError("Network service was not initialized")
                 csq = self._network.get_signal_csq()
                 print("[Status] Signal CSQ: {}, Free RAM: {} B".format(csq, gc.mem_free()))
             loop_count += 1

@@ -14,9 +14,10 @@
 ```text
 ec600x-firmware/
 ├── package.json          # Monorepo 子包标识
-├── pyproject.toml        # Python 配置
+├── pyproject.toml        # Python、Ruff、Pyright 与 pytest 配置
 ├── README.md             # 部署说明与接口文档
 ├── tools/pack.py         # 宿主机产物构建与校验工具
+├── typings/              # QuecPython 与宿主机 API 类型桩
 ├── tests/                # 使用注入平台替身的宿主机测试
 └── src/
     ├── _main.py          # 系统自启入口（看门狗初始化、崩溃日志兜底守护）
@@ -32,12 +33,38 @@ ec600x-firmware/
 
 ## 宿主机检查与构建
 
-这些命令只在开发机执行，`uv` 可选；固件运行时不携带第三方依赖。
+这些命令只在开发机执行。`uv` 管理锁定的开发工具依赖，固件运行时不携带第三方依赖。
 
 ```bash
 cd packages/ec600x-firmware
+uv sync
+
+# 完整质量门禁：格式、lint、严格类型检查、单元测试
+pnpm run check
+
+# 分项执行
+pnpm run format
+pnpm run lint
+pnpm run typecheck
+pnpm run test
+
+# QuecPython 运行时语法兼容性
 python3 -m compileall -q src
-python3 -m pytest
+
+# 构建并校验部署产物
+pnpm run build
+pnpm run verify
+```
+
+Pyright 使用 `typeCheckingMode = "strict"`，并将 `src`、`tools`、`tests` 纳入检查范围；Ruff 使用包含错误、导入、命名、升级建议、bug 检测和简化规则的门禁。`typings/` 固化项目实际使用的 QuecPython API 契约，因此检查结果不依赖开发机上的 Thonny 或其他用户目录安装。
+
+若只需要直接调用底层工具，也可以使用：
+
+```bash
+uv run pyright
+uv run ruff check src tools tests
+uv run ruff format --check src tools tests
+uv run pytest
 python3 tools/pack.py build
 python3 tools/pack.py verify
 ```

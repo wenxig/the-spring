@@ -7,9 +7,13 @@
   "scripts": {
     "build": "python3 tools/pack.py build",
     "verify": "python3 tools/pack.py verify",
-    "ports": "uv run --with pyserial python3 tools/flash.py ports",
-    "flash": "uv run --with pyserial python3 tools/flash.py flash",
-    "test": "uv run --with pytest pytest",
-    "check": "uv run --with ruff ruff check src tools tests"
+    "ports": "uv run python3 tools/flash.py ports",
+    "flash": "uv run python3 tools/flash.py flash",
+    "format": "uv run ruff format --check src tools tests",
+    "format:fix": "uv run ruff format src tools tests",
+    "lint": "uv run ruff check src tools tests",
+    "typecheck": "uv run pyright",
+    "test": "uv run pytest",
+    "check": "pnpm run format && pnpm run lint && pnpm run typecheck && pnpm run test"
   }
 }

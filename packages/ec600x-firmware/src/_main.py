@@ -4,14 +4,18 @@ QuecPython 入口守护进程: _main.py
 """
 
 import gc
+
 import utime
 from machine import WDT
 
-def run_app():
+
+def run_app() -> None:
     import main
+
     main.run()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     # 启用硬件看门狗 (30秒超时)
     wdt = None
     try:
