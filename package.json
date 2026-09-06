@@ -18,21 +18,7 @@
   },
   "type": "module",
   "scripts": {
-    "firmware:bootstrap": "node scripts/firmware.mjs bootstrap",
-    "firmware:build": "node scripts/firmware.mjs build",
-    "firmware:configure": "node scripts/firmware.mjs configure",
-    "firmware:flash": "node scripts/firmware.mjs flash",
-    "firmware:lint": "node scripts/firmware.mjs lint",
-    "firmware:monitor": "node scripts/firmware.mjs monitor",
-    "native:bootstrap": "scripts/bootstrap-native.sh",
-    "native:build": "scripts/native.sh build",
-    "native:configure": "scripts/native.sh configure",
-    "native:format": "scripts/native.sh format",
-    "native:format-check": "scripts/native.sh format-check",
-    "native:lint": "scripts/native.sh lint",
-    "native:sanitize": "scripts/native.sh sanitize",
-    "native:test": "scripts/native.sh test",
-    "start:all": "scripts/start-all.sh"
+    
   },
   "devDependencies": {
     "@commitlint/cli": "catalog:",

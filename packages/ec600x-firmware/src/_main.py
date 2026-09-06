@@ -4,7 +4,6 @@ QuecPython 入口守护进程: _main.py
 """
 
 import gc
-import uos
 import utime
 from machine import WDT
 

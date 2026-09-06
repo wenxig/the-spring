@@ -3,8 +3,6 @@ VoLTE 语音通话服务 (voiceCall)
 管理 VoLTE 呼入接听、呼出拨号、挂断与事件回调状态机
 """
 
-import voiceCall
-
 # QuecPython voiceCall 状态码常量
 CALL_STATE_INCOMING = 10     # 来电通知（振铃）
 CALL_STATE_CONNECTED = 11    # 通话已接通
@@ -15,7 +13,8 @@ CALL_STATE_ALERTING = 15     # 对方振铃中
 CALL_STATE_HOLDING = 16      # 呼叫保持
 
 class VolteService:
-    def __init__(self, auto_answer=False, event_cb=None):
+    def __init__(self, platform, auto_answer=False, event_cb=None):
+        self._voice_call = platform.voice_call
         self._auto_answer = auto_answer
         self._event_cb = event_cb
         self._current_call_id = None
@@ -62,7 +61,7 @@ class VolteService:
                 self._event_cb(event, phone, call_id)
 
         try:
-            voiceCall.setCallback(_cb)
+            self._voice_call.setCallback(_cb)
             print("[VoLTE] Callback registered.")
         except Exception as e:
             print("[VoLTE] Failed to register callback:", e)
@@ -71,7 +70,7 @@ class VolteService:
         """发起拨号"""
         try:
             print("[VoLTE] Calling {}...".format(phone_number))
-            ret = voiceCall.callStart(phone_number)
+            ret = self._voice_call.callStart(phone_number)
             return ret == 0
         except Exception as e:
             print("[VoLTE] Call failed:", e)
@@ -80,7 +79,7 @@ class VolteService:
     def answer(self):
         """接听当前来电"""
         try:
-            ret = voiceCall.callAnswer()
+            ret = self._voice_call.callAnswer()
             return ret == 0
         except Exception as e:
             print("[VoLTE] Answer failed:", e)
@@ -89,7 +88,7 @@ class VolteService:
     def hangup(self):
         """挂断电话"""
         try:
-            ret = voiceCall.callEnd()
+            ret = self._voice_call.callEnd()
             return ret == 0
         except Exception as e:
             print("[VoLTE] Hangup failed:", e)
@@ -98,13 +97,13 @@ class VolteService:
     def set_volume(self, volume):
         """设置通话音量 (0~11)"""
         try:
-            voiceCall.setVolume(volume)
+            self._voice_call.setVolume(volume)
         except Exception as e:
             print("[VoLTE] Set volume error:", e)
 
     def set_channel(self, channel=0):
         """切换音频通道 (0: 听筒/喇叭, 1: 耳机)"""
         try:
-            voiceCall.setChannel(channel)
+            self._voice_call.setChannel(channel)
         except Exception as e:
             print("[VoLTE] Set channel error:", e)
