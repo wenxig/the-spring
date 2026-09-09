@@ -50,3 +50,11 @@ Official resource: <https://developer.quectel.com/resource-download/qpy_ocpu_ec6
 - `uv run --with ruff ruff check .`: 39 existing findings in API stubs under `typings`.
 - `vp check`: existing formatting findings in root/package manifests, `pyproject.toml` and `pnpm-workspace.yaml`.
 - `vp test`: no files matched the root `script/**/*.test.ts` configuration; exit code 1.
+
+## USB/IP runtime probe update (2026-09-09)
+
+- Rebuilt the temporary USB/IP host with interface claim handling for modem interfaces 2-4 and shorter transfer timeouts.
+- With the host server held open, Docker Linux attached `20-10-1`; `/dev/ttyUSB0..2` appeared.
+- `ttyUSB1` and `ttyUSB2` both answered `AT` with `AT\r\r\nOK\r\n`; `ttyUSB0` had no response.
+- After the USB/IP host process/session ended, the imported device detached and serial nodes disappeared.
+- A Raw REPL probe was not completed before the session dropped. No application files were uploaded and no base firmware was flashed.
