@@ -58,7 +58,7 @@ In cloud environments, use `pnpm exec vp`.
 ### 物理架构
 
 - 由于这是一个针对嵌入式的项目，以下是物理硬件描述
-- `微雪 ESP32-P4开发板`[文档](https://docs.waveshare.net/ESP32-P4-WIFI6-DEV-KIT)，它作为主要的控制板统领传感器和`ec600x`以及一块通过spi连接的水墨屏
+- `微雪 ESP32-P4-Module-DEV-KIT`[文档](https://docs.waveshare.net/ESP32-P4-Module-DEV-KIT)，它作为主要的控制板统领传感器和`ec600x`以及一块通过spi连接的水墨屏
 - `移远 EC600X开发板`[文档](https://developer.quectel.com/doc/quecpython/Dev_board_guide/zh/ec600x-evb.html)，它是一块4g/volte/cat等围绕移动网络的开发版。内部使用ec600m芯片
 
 ## 项目概览

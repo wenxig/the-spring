@@ -1,6 +1,6 @@
-# ESP32-P4-WIFI6-DEV-KIT 硬件规格与引脚映射
+# ESP32-P4-Module-DEV-KIT 硬件规格与引脚映射
 
-本文档基于微雪官方文档（https://docs.waveshare.net/ESP32-P4-WIFI6-DEV-KIT）和原理图设计。
+本文档基于微雪官方文档（https://docs.waveshare.net/ESP32-P4-Module-DEV-KIT）和原理图设计；引脚编号以官方页面的“引脚定义”图为准。
 
 ---
 
@@ -10,7 +10,7 @@
 | :--- | :--- |
 | **SoC** | **ESP32-P4NRW32** (双核 32-bit RISC-V @ 360MHz，DSP/FPU/SIMD 扩展；LP 单核 RISC-V @ 40MHz) |
 | **内存与存储** | 封装内叠封 **32MB PSRAM**，板载 **16MB Nor Flash**，768KB HP L2MEM，32KB LP SRAM，8KB TCM |
-| **无线协处理器** | **ESP32-C6-MINI-1**，提供 2.4GHz Wi-Fi 6 (802.11ax/b/g/n) 与 Bluetooth 5 (LE) |
+| **无线协处理器** | **ESP32-C6**，提供 2.4GHz Wi-Fi 6 (802.11ax/b/g/n) 与 Bluetooth 5 (LE) |
 | **板载以太网** | 100Mbps 百兆 RJ45 以太网口（支持外接 PoE 模块供电） |
 | **USB 接口** | 1x Type-C UART（CH343P USB 转串口调试与供电）；1x Type-C USB（ESP32-P4 原生 USB）；1x Type-A USB 2.0 OTG High Speed（支持 Host/Device 跳线切换） |
 | **多媒体与音视频** | MIPI-DSI (2-lane) 高清屏接口、MIPI-CSI (2-lane) 摄像头接口、板载 ES8311 音频 Codec、NS4150B 功放、3.5mm 耳机插孔、贴片麦克风、MX1.25 喇叭接口 |

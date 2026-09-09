@@ -1,12 +1,12 @@
 ---
 name: waveshare-esp32-p4-dev-kit
-description: 微雪 (Waveshare) ESP32-P4-WIFI6-DEV-KIT 开发板开发与硬件集成指南。涵盖 ESP32-P4NRW32 主控 (双核 RISC-V 360MHz + 32MB PSRAM + 16MB Flash)、ESP32-C6-MINI-1 协处理器 (Wi-Fi 6 + BLE 5.3)、40-Pin 扩展引脚映射、ES8311 音频电路、百兆以太网/PoE 接口、MIPI-DSI/CSI、USB OTG、SDMMC TF 卡以及 ESP-IDF 编译与系统集成流程。
+description: 微雪 (Waveshare) ESP32-P4-Module-DEV-KIT 开发板开发与硬件集成指南。涵盖 ESP32-P4NRW32 主控 (双核 RISC-V 360MHz + 32MB PSRAM + 16MB Flash)、ESP32-C6 Wi-Fi/蓝牙协处理器、40-Pin 扩展引脚映射、ES8311 音频电路、百兆以太网/PoE 接口、MIPI-DSI/CSI、USB OTG、SDIO 3.0 SD 卡以及 ESP-IDF 编译与系统集成流程。
 ---
 
-# 微雪 ESP32-P4-WIFI6-DEV-KIT 开发板开发指南
+# 微雪 ESP32-P4-Module-DEV-KIT 开发板开发指南
 
-> 官方文档：<https://docs.waveshare.net/ESP32-P4-WIFI6-DEV-KIT>  
-> 适用硬件：微雪 ESP32-P4-WIFI6-DEV-KIT（A/B/C 套餐通用）  
+> 官方文档：<https://docs.waveshare.net/ESP32-P4-Module-DEV-KIT>
+> 适用硬件：微雪 ESP32-P4-Module-DEV-KIT（含 A/B/C 套餐）
 > 角色定位：项目中主控制板，统领传感器、移远 EC600X 通信板及 SPI 水墨屏  
 
 ---
@@ -17,7 +17,7 @@ description: 微雪 (Waveshare) ESP32-P4-WIFI6-DEV-KIT 开发板开发与硬件�
 | :--- | :--- |
 | **主控 SoC** | **ESP32-P4NRW32**，双核 RISC-V @ 360MHz (HP)，内置 FPU/DSP 扩展；单核 RISC-V @ 40MHz (LP) |
 | **内存与存储** | 封装内集成 **32MB PSRAM**，板载 **16MB NOR Flash**，768KB HP L2MEM，32KB LP SRAM |
-| **无线协处理器**| **ESP32-C6-MINI-1**，支持 2.4GHz Wi-Fi 6 (802.11ax) + BLE 5.3，通过 SDIO 总线连接 |
+| **无线协处理器**| **ESP32-C6**，支持 2.4GHz Wi-Fi 6 与 Bluetooth 5，通过 SDIO 总线连接 |
 | **网络接口** | 百兆 RJ45 以太网口（支持外接 PoE 模块供电） |
 | **音频系统** | ES8311 音频 Codec + NS4150B Class D 功放，板载贴片麦克风、3.5mm 耳机接口与 MX1.25 喇叭座 |
 | **显示与相机** | 15-Pin MIPI-DSI (2-lane，最高 1080P) + 15-Pin MIPI-CSI (2-lane，支持硬件 ISP 与 H.264 编码) |
