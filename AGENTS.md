@@ -61,6 +61,15 @@ In cloud environments, use `pnpm exec vp`.
 - `微雪 ESP32-P4-Module-DEV-KIT`[文档](https://docs.waveshare.net/ESP32-P4-Module-DEV-KIT)，它作为主要的控制板统领传感器和`ec600x`以及一块通过spi连接的水墨屏
 - `移远 EC600X开发板`[文档](https://developer.quectel.com/doc/quecpython/Dev_board_guide/zh/ec600x-evb.html)，它是一块4g/volte/cat等围绕移动网络的开发版。内部使用ec600m芯片
 
+### EC600M 控制边界
+
+- EC600M 作为 ESP32-P4 的通信扩展使用，主控程序通过 UART 发送 AT 命令并解析响应和 URC。
+- 网络注册、数据拨号、信号查询、基站定位信息和 VoLTE 控制均由 ESP32-P4 的 C++ 服务封装；EC600M 保持 modem 固件运行。
+- 禁止为 EC600M 新增 QuecPython 应用、Raw REPL 上传流程或依赖 QuecPython 运行时的部署脚本。
+- UART 连接遵循 EC600X-EVB J5 的 TX0/RX0/GND 定义，并由主控负责超时、重试、URC 分发和状态机管理。
+
+采用该边界是因为 EC600M 的公开用户开发路径以 QuecPython 或受限的 QuecOpen SDK 为主，macOS 缺少稳定的 Quectel 串口驱动；AT modem 接口由 ESP32-P4 统一管理后，编译、烧录和调试链路保持在主控工程内，EC600M 只承担蜂窝通信能力。
+
 ## 项目概览
 
 采用 **pnpm monorepo** 架构。
