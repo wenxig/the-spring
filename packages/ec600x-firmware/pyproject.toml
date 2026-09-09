@@ -24,7 +24,7 @@ ignore = ["E501", "A003"]
 
 [tool.ruff.lint.per-file-ignores]
 "src/**/*.py" = ["RUF002", "RUF003", "UP032", "UP037"]
-"src/type_contracts.py" = ["N802"]
+"src/type_contracts.pyi" = ["N802"]
 "tests/**/*.py" = ["N802"]
 
 [tool.ruff.format]
@@ -60,9 +60,9 @@ reportUnnecessaryTypeIgnoreComment = "error"
 reportUnreachable = "error"
 
 executionEnvironments = [
-    { root = "src", extraPaths = ["src"] },
-    { root = "tests", extraPaths = ["src"] },
-    { root = "tools" },
+    { root = "src", extraPaths = ["src", "typings"] },
+    { root = "tests", extraPaths = ["src", "typings"] },
+    { root = "tools", extraPaths = ["typings"] },
 ]
 
 [tool.pytest.ini_options]

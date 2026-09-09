@@ -1,10 +1,10 @@
 """QuecPython platform imports kept behind one small boundary."""
 
-import cellLocator
-import checkNet
-import net
-import sms
-import voiceCall
+import cellLocator  # type: ignore[import-untyped]
+import checkNet  # type: ignore[import-untyped]
+import net  # type: ignore[import-untyped]
+import sms  # type: ignore[import-untyped]
+import voiceCall  # type: ignore[import-untyped]
 
 try:
     import typing
@@ -36,4 +36,4 @@ class QuecPlatform:
         self.net: "NetModule" = net
         self.sms: "SmsModule" = sms
         self.voice_call: "VoiceCallModule" = voiceCall
-        self.cell_locator: "CellLocatorModule" = cellLocator
+        self.cell_locator: "CellLocatorModule" = cellLocator  # type: ignore[assignment]
