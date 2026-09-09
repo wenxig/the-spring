@@ -88,9 +88,9 @@ PWRKEY、RESET_N、MAIN_RI 没有引出到 EC600X-EVB 的 J5/J6，首版连接�
 
 ### VoLTE 与 PCM 音频
 
-VoLTE 的呼叫控制和音频承载分成两条链路：ESP32-P4 通过 UART 发送 `ATD<number>;`、`ATA`、`ATH` 并解析来电、接通和挂断 URC；通话语音由 ESP32-P4 的音频系统采集和播放。项目不使用 EC600X-EVB 板载麦克风、NS4160 功放或板载扬声器。
+VoLTE 的呼叫控制和音频承载分成两条链路：ESP32-P4 通过 UART 发送 `ATD<number>;`、`ATA`、`ATH` 并解析来电、接通和挂断 URC；通话语音由 EC600M 的音频接口承载。当前 EC600X-EVB 已把 EC600M 的模拟麦克风输入和差分扬声器输出接到板载 GMI6050P/NS4160，首版 VoLTE 使用板载麦克风和扬声器即可，ESP32 不需要传输 PCM 数据。
 
-ESP32-P4 侧使用板载 ES8311 音频 Codec 和 I2S 总线连接麦克风、扬声器。EC600M 与 ESP32 之间需要 PCM_CLK、PCM_SYNC、PCM_DIN、PCM_DOUT 四线数字音频链路，并按 EC600M 硬件手册匹配 1.8V 电平、主从时钟和 Codec 参考时钟。现有 J5/J6 没有列出 PCM 引脚，不能通过排针完成这条连接；需要从模组测试焊盘或重新设计底板引出，增加 1.8V 电平转换和可断开的调试焊盘。ESP32-P4 的普通 I2S GPIO 不可直接当作 EC600M PCM 接口，必须确认复用功能后再布线。
+PCM/数字音频只有在产品需要 ESP32 处理语音、回声消除或外接 Codec 时才启用。现有 J5/J6 排针没有列出 PCM_CLK、PCM_SYNC、PCM_DIN、PCM_DOUT，不能从排针直接接线；必须依据 EC600M 硬件手册和 EVB 原理图确认模组焊盘、1.8V 电平、主从时钟和 Codec 连接，再设计电平转换及音频 Codec。ESP32-P4 的普通 I2S GPIO 不可直接当作 EC600M PCM 接口。
 
 VoLTE 首版验收顺序：确认 `AT+CEREG?` 已注册、`AT+CSQ` 信号正常，使用 `ATD<number>;` 发起呼叫，监听 `VOICE CALL: BEGIN`/厂商对应 URC，确认板载扬声器和麦克风通话，再用 `ATH` 结束。具体音频通道、音量和 PCM 复用命令必须以 EC600M 当前固件 AT 手册为准，代码中集中封装并保留超时与失败回滚。
 
