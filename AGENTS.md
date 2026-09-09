@@ -70,6 +70,22 @@ In cloud environments, use `pnpm exec vp`.
 
 采用该边界是因为 EC600M 的公开用户开发路径以 QuecPython 或受限的 QuecOpen SDK 为主，macOS 缺少稳定的 Quectel 串口驱动；AT modem 接口由 ESP32-P4 统一管理后，编译、烧录和调试链路保持在主控工程内，EC600M 只承担蜂窝通信能力。
 
+### ESP32-P4 与 EC600X-EVB 物理连接
+
+按当前两块开发板的排针定义，UART0 主串口采用交叉连接：
+
+| ESP32-P4（40-Pin） | EC600X-EVB（J5） | 信号 |
+| --- | --- | --- |
+| Pin 1 / GPIO0（UART TX） | J5 Pin 7 / RX0 | ESP32 发送，EC600M 接收 |
+| Pin 2 / GPIO1（UART RX） | J5 Pin 6 / TX0 | EC600M 发送，ESP32 接收 |
+| Pin 3、8、13 或 18 / GND | J5 Pin 1、2 或 18 / GND | 公共信号地 |
+
+两块开发板分别使用各自的 USB 供电，连接 UART 前先确认 EC600X-EVB 电源开关处于 USB 挡。J5 的 UART 信号经过 EVB 电平转换器并位于 3.3V 侧，可与 ESP32-P4 GPIO0/GPIO1 连接；J6 Pin 3（1.8V VDD_EXT）和 J6 Pin 18（约 3.8V VBAT）不得接入 ESP32 GPIO 或 3.3V 电源。不要把 EC600X-EVB 的 J6 Pin 1 5V 直接并接到 ESP32-P4 的 3V3_OUT。
+
+PWRKEY、RESET_N、MAIN_RI 没有引出到 EC600X-EVB 的 J5/J6，首版连接通过板载 PWRKEY 和 RESET 按键完成开关机与复位。需要主控自动控制时，再按 EC600M 硬件手册增加晶体管或开漏下拉电路，并为 MAIN_RI 增加电平匹配输入；禁止把这些模组侧信号直接接到 ESP32 GPIO。
+
+连接完成后的最小验证顺序是：ESP32 UART 发送 `AT`，等待 `OK`；查询 `AT+CPIN?`、`AT+CEREG?`、`AT+CSQ`，再执行数据拨号和 VoLTE 状态流程。USB 线仅用于分别烧录和日志查看，开发板之间的业务通信使用上述 UART 线。
+
 ## 项目概览
 
 采用 **pnpm monorepo** 架构。
