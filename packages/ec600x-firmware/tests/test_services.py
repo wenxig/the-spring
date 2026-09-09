@@ -1,6 +1,7 @@
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
+from services.location import LocationService
 from services.network import NetworkService
 from services.sms import SmsService
 from services.volte import VolteService
@@ -8,6 +9,7 @@ from services.volte import VolteService
 if TYPE_CHECKING:
     from type_contracts import (
         CallbackArgs,
+        CellLocatorModule,
         CheckNetModule,
         NetModule,
         SmsModule,
@@ -96,17 +98,32 @@ class FakeVoiceCall:
         return 0
 
 
+class FakeCellLocator:
+    def getLocation(
+        self,
+        server_addr: str,
+        port: int,
+        token: str,
+        timeout: int,
+        profile_idx: int,
+    ) -> tuple[float, float, int]:
+        del server_addr, port, token, timeout, profile_idx
+        return (39.908823, 116.397470, 550)
+
+
 class FakePlatform:
     def __init__(
         self,
         check_net: "CheckNetModule | None" = None,
         sms: "SmsModule | None" = None,
         voice_call: "VoiceCallModule | None" = None,
+        cell_locator: "CellLocatorModule | None" = None,
     ) -> None:
         self.check_net: CheckNetModule = check_net or FakeCheckNet((3, 1))
         self.net: NetModule = FakeNet()
         self.sms: SmsModule = sms or FakeSms()
         self.voice_call: VoiceCallModule = voice_call or FakeVoiceCall()
+        self.cell_locator: CellLocatorModule = cell_locator or FakeCellLocator()
 
 
 def test_network_service_reports_connection_and_signal() -> None:
@@ -142,3 +159,16 @@ def test_volte_service_dispatches_events_and_commands() -> None:
     fake_voice.callback((11, 2, 0, 0, 0, 0, "10086"))
 
     assert events == [(11, "10086", 2)]
+
+
+def test_location_service_returns_coordinates() -> None:
+    fake_locator = FakeCellLocator()
+    service = LocationService(fake_locator)
+
+    result = service.get_position(timeout=10)
+
+    assert result is not None
+    lat, lng, accuracy = result
+    assert lat == 39.908823
+    assert lng == 116.397470
+    assert accuracy == 550

@@ -1,10 +1,11 @@
 # ec600x-firmware
 
-移远 **EC600X-EVB** (搭载 **EC600M-CN** LTE Cat 1 bis 模组) QuecPython 蜂窝网络、VoLTE 语音与短信固件工程。
+移远 **EC600X-EVB** (搭载 **EC600M-CN** LTE Cat 1 bis 模组) QuecPython 4G 注册与基站定位测试固件。
 
 ## 功能核心
 
 - **蜂窝网络连接管理 (`services/network.py`)**：基站注网就绪检测、数据通道激活与信号强度 (CSQ) 监控。
+- **基站定位服务 (`services/location.py`)**：通过 cellLocator API 获取当前经纬度坐标，无需 GPS 模块。
 - **VoLTE 语音通话 (`services/volte.py`)**：来电异步监听、呼出拨号、接听、挂断、音频通道与音量控制。
 - **短信业务系统 (`services/sms.py`)**：中英文/UCS2 编码短信发送、来信异步事件回调与自动存储防满清理。
 - **系统看门狗与异常防护 (`_main.py`)**：开机自动启动、WDT 定时喂狗与未捕获异常持久化记录 (`/usr/crash.log`)。
@@ -21,12 +22,14 @@ ec600x-firmware/
 ├── tests/                # 使用注入平台替身的宿主机测试
 └── src/
     ├── _main.py          # 系统自启入口（看门狗初始化、崩溃日志兜底守护）
-    ├── main.py           # QuecPython 兼容入口
+    ├── main.py           # 4G 注册与定位测试主程序
     ├── application.py    # 应用生命周期与依赖组合根
     ├── qpy_platform.py   # QuecPython 平台模块边界
+    ├── type_contracts.py # 类型协议与回调契约
     └── services/         # 蜂窝通信与电信核心服务模块
         ├── __init__.py
         ├── network.py    # 网络注册与 CSQ 监控服务
+        ├── location.py   # 基站定位服务
         ├── sms.py        # 短信服务
         └── volte.py      # VoLTE 通话服务
 ```
@@ -70,6 +73,38 @@ python3 tools/pack.py verify
 ```
 
 构建后把 `dist/ec600x-firmware.zip` 解压得到的文件上传到模组 `/usr`。`dist/SHA256SUMS` 用于在上传前确认归档未损坏。
+
+## 测试程序说明
+
+当前 `main.py` 是 **4G 注册与基站定位测试程序**，烧录后会自动执行：
+
+1. 等待 4G 网络注册（最多 60 秒）
+2. 查询信号强度 (CSQ) 与基站信息
+3. 调用 cellLocator 获取当前经纬度坐标
+4. 每 60 秒报告一次信号与内存状态
+
+测试输出示例：
+```
+========================================
+  EC600X 4G Registration & Location Test
+========================================
+Free memory: 5242880 bytes
+
+[Test 1/2] Testing 4G network registration...
+[Net] Waiting for cellular network...
+[Net] Cellular network ready.
+[OK] Signal CSQ: 23
+[OK] Cell info: {...}
+
+[Test 2/2] Testing cell tower location...
+[Location] Position: lat=39.908823, lng=116.397470, accuracy=550m
+[OK] Position: lat=39.908823, lng=116.397470, accuracy=550m
+
+========================================
+All tests completed. Module will stay alive for monitoring.
+Press Ctrl+C to exit.
+========================================
+```
 
 ## 烧录与部署流程
 

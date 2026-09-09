@@ -24,6 +24,7 @@ ignore = ["E501", "A003"]
 
 [tool.ruff.lint.per-file-ignores]
 "src/**/*.py" = ["RUF002", "RUF003", "UP032", "UP037"]
+"src/type_contracts.py" = ["N802"]
 "tests/**/*.py" = ["N802"]
 
 [tool.ruff.format]

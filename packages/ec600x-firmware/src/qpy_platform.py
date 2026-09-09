@@ -1,5 +1,6 @@
 """QuecPython platform imports kept behind one small boundary."""
 
+import cellLocator
 import checkNet
 import net
 import sms
@@ -13,7 +14,13 @@ else:
     _type_checking = typing.TYPE_CHECKING
 
 if _type_checking:
-    from type_contracts import CheckNetModule, NetModule, SmsModule, VoiceCallModule
+    from type_contracts import (
+        CellLocatorModule,
+        CheckNetModule,
+        NetModule,
+        SmsModule,
+        VoiceCallModule,
+    )
 
 
 class _CheckNetAdapter:
@@ -29,3 +36,4 @@ class QuecPlatform:
         self.net: "NetModule" = net
         self.sms: "SmsModule" = sms
         self.voice_call: "VoiceCallModule" = voiceCall
+        self.cell_locator: "CellLocatorModule" = cellLocator
