@@ -6,6 +6,9 @@
 #include "input_service.hpp"
 #include "at_engine.hpp"
 #include "display_service.hpp"
+#include "storage_service.hpp"
+#include "network_service.hpp"
+#include "clock_app.hpp"
 
 namespace {
 constexpr char kTag[] = "the_spring";
@@ -18,5 +21,8 @@ extern "C" void app_main() {
   spring::app::start();
   spring::display::start();
   spring::modem::start();
+  spring::storage::mount_sdcard();
+  spring::network::start();
+  spring::clock_app::register_app();
   vTaskDelay(pdMS_TO_TICKS(1000));
 }
