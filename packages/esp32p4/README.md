@@ -8,6 +8,8 @@
 - EC600X UART1：TX/RX = GPIO0/GPIO1
 - 按键 S1-S8：GPIO4/20/23/26/27/46/47/48，active-low 上拉
 
+按键语义、数字时钟和休眠行为见 `docs/ui-input-clock.md`。
+
 ## 构建
 
 ```sh
