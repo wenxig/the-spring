@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <string_view>
+#include <string>
 
 namespace spring::modem {
 enum class Result : std::uint8_t { ok, timeout, transport_error, rejected };
@@ -18,4 +19,7 @@ struct Snapshot {
 void start();
 Result execute(std::string_view command, std::uint32_t timeout_ms);
 Snapshot snapshot();
+bool is_urc(std::string_view line);
+bool is_final_ok(std::string_view line);
+bool is_final_error(std::string_view line);
 }  // namespace spring::modem

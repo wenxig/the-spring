@@ -29,3 +29,15 @@ spring::modem::Result spring::modem::execute(std::string_view command, std::uint
 }
 
 spring::modem::Snapshot spring::modem::snapshot() { return state; }
+
+bool spring::modem::is_urc(std::string_view line) {
+  return line.starts_with("+CEREG:") || line.starts_with("+CSQ:") ||
+         line.starts_with("+CLIP:") || line.starts_with("VOICE CALL:") ||
+         line.starts_with("+CMTI:");
+}
+
+bool spring::modem::is_final_ok(std::string_view line) { return line == "OK"; }
+
+bool spring::modem::is_final_error(std::string_view line) {
+  return line == "ERROR" || line.starts_with("+CME ERROR:");
+}
