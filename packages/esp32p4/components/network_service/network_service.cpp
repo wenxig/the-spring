@@ -1,6 +1,7 @@
 #include "network_service.hpp"
 
 #include "esp_log.h"
+#include "esp_http_client.h"
 
 namespace {
 constexpr char kTag[] = "network";
@@ -23,10 +24,24 @@ spring::network::Link spring::network::active_link() {
 
 spring::network::Response spring::network::get(std::string_view url) {
   if (url.empty() || active_link() == Link::unavailable) return {.status = -1};
-  return {.status = 501};
+  esp_http_client_config_t config{.url = url.data(), .timeout_ms = 15000};
+  esp_http_client_handle_t client = esp_http_client_init(&config);
+  if (client == nullptr) return {.status = -1};
+  const auto result = esp_http_client_perform(client);
+  Response response{.status = result == ESP_OK ? esp_http_client_get_status_code(client) : -1};
+  esp_http_client_cleanup(client);
+  return response;
 }
 
 spring::network::Response spring::network::post(std::string_view url, std::string_view body) {
   if (url.empty() || body.empty() || active_link() == Link::unavailable) return {.status = -1};
-  return {.status = 501};
+  esp_http_client_config_t config{.url = url.data(), .timeout_ms = 15000};
+  esp_http_client_handle_t client = esp_http_client_init(&config);
+  if (client == nullptr) return {.status = -1};
+  esp_http_client_set_method(client, HTTP_METHOD_POST);
+  esp_http_client_set_post_field(client, body.data(), static_cast<int>(body.size()));
+  const auto result = esp_http_client_perform(client);
+  Response response{.status = result == ESP_OK ? esp_http_client_get_status_code(client) : -1};
+  esp_http_client_cleanup(client);
+  return response;
 }
