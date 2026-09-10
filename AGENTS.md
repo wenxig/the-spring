@@ -104,6 +104,14 @@ PCM/数字音频只有在产品需要 ESP32 处理语音、回声消除或外接
 
 VoLTE 首版验收顺序：确认 `AT+CEREG?` 已注册、`AT+CSQ` 信号正常，使用 `ATD<number>;` 发起呼叫，监听 `VOICE CALL: BEGIN`/厂商对应 URC，确认板载扬声器和麦克风通话，再用 `ATH` 结束。具体音频通道、音量和 PCM 复用命令必须以 EC600M 当前固件 AT 手册为准，代码中集中封装并保留超时与失败回滚。
 
+### 8 Push Buttons V1.02 按键板
+
+- 项目使用商品图所示的 `8 Push Buttons V1.02` 八键板，板上按键丝印为 `S1` 到 `S8`。
+- 该板顶部为 9 针排针，从 `G` 端开始依次为 `G / K8 / K7 / K6 / K5 / K4 / K3 / K2 / K1`。
+- `G` 接 ESP32-P4 公共地；`K1` 到 `K8` 分别对应 `S1` 到 `S8`，按键按下时对应输入与 `G` 导通。
+- ESP32-P4 侧按 8 路独立 active-low GPIO 输入接入，使用上拉和软件消抖；具体 GPIO 号由板级资源表分配。
+- 涉及该按键板的接线、GPIO 分配、扫描、消抖或事件映射时，读取项目技能 [.agents/skills/8-push-buttons/SKILL.md](.agents/skills/8-push-buttons/SKILL.md)。
+
 ## 项目概览
 
 采用 **pnpm monorepo** 架构。
