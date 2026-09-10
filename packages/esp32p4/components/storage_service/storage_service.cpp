@@ -34,6 +34,8 @@ bool spring::storage::mount_sdcard() {
     mkdir("/sdcard/data", 0755);
   }
   if (mounted && sqlite3_open("/sdcard/data/spring.sqlite3", &database) == SQLITE_OK) {
+    sqlite3_busy_timeout(database, 3000);
+    sqlite3_exec(database, "PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;", nullptr, nullptr, nullptr);
     constexpr char schema[] =
         "CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY, type TEXT NOT NULL, "
         "payload TEXT NOT NULL, created_at INTEGER NOT NULL);"
@@ -48,10 +50,15 @@ bool spring::storage::append_event(std::string_view type, std::string_view paylo
   if (!mounted || type.empty() || payload.empty()) return false;
   sqlite3_stmt* statement = nullptr;
   constexpr char sql[] = "INSERT INTO events(type,payload,created_at) VALUES(?,?,unixepoch());";
-  if (sqlite3_prepare_v2(database, sql, -1, &statement, nullptr) != SQLITE_OK) return false;
+  if (sqlite3_exec(database, "BEGIN;", nullptr, nullptr, nullptr) != SQLITE_OK) return false;
+  if (sqlite3_prepare_v2(database, sql, -1, &statement, nullptr) != SQLITE_OK) {
+    sqlite3_exec(database, "ROLLBACK;", nullptr, nullptr, nullptr);
+    return false;
+  }
   sqlite3_bind_text(statement, 1, type.data(), static_cast<int>(type.size()), SQLITE_TRANSIENT);
   sqlite3_bind_text(statement, 2, payload.data(), static_cast<int>(payload.size()), SQLITE_TRANSIENT);
   const bool success = sqlite3_step(statement) == SQLITE_DONE;
   sqlite3_finalize(statement);
+  sqlite3_exec(database, success ? "COMMIT;" : "ROLLBACK;", nullptr, nullptr, nullptr);
   return success;
 }
