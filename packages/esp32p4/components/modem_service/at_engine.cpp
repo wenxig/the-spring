@@ -3,15 +3,18 @@
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/semphr.h"
 #include <string>
 
 namespace {
 constexpr char kTag[] = "modem";
 constexpr uart_port_t kPort = UART_NUM_1;
 spring::modem::Snapshot state{};
+SemaphoreHandle_t command_lock = nullptr;
 }
 
 void spring::modem::start() {
+  command_lock = xSemaphoreCreateMutex();
   const uart_config_t config{.baud_rate = 115200,
                              .data_bits = UART_DATA_8_BITS,
                              .parity = UART_PARITY_DISABLE,
@@ -26,9 +29,15 @@ void spring::modem::start() {
 
 spring::modem::Result spring::modem::execute(std::string_view command, std::uint32_t timeout_ms) {
   if (command.empty()) return Result::rejected;
+  if (command_lock == nullptr || xSemaphoreTake(command_lock, pdMS_TO_TICKS(timeout_ms)) != pdTRUE) {
+    return Result::timeout;
+  }
   std::string wire{command};
   wire.append("\r\n");
-  if (uart_write_bytes(kPort, wire.data(), wire.size()) < 0) return Result::transport_error;
+  if (uart_write_bytes(kPort, wire.data(), wire.size()) < 0) {
+    xSemaphoreGive(command_lock);
+    return Result::transport_error;
+  }
   std::string line;
   const auto deadline = xTaskGetTickCount() + pdMS_TO_TICKS(timeout_ms);
   std::uint8_t byte = 0;
@@ -36,13 +45,20 @@ spring::modem::Result spring::modem::execute(std::string_view command, std::uint
     if (uart_read_bytes(kPort, &byte, 1, pdMS_TO_TICKS(50)) != 1) continue;
     if (byte == '\n') {
       if (is_urc(line)) consume_urc(line);
-      if (is_final_ok(line)) return Result::ok;
-      if (is_final_error(line)) return Result::rejected;
+      if (is_final_ok(line)) {
+        xSemaphoreGive(command_lock);
+        return Result::ok;
+      }
+      if (is_final_error(line)) {
+        xSemaphoreGive(command_lock);
+        return Result::rejected;
+      }
       line.clear();
     } else if (byte != '\r') {
       line.push_back(static_cast<char>(byte));
     }
   }
+  xSemaphoreGive(command_lock);
   return Result::timeout;
 }
 
