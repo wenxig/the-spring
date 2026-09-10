@@ -1,4 +1,5 @@
 #include "at_engine.hpp"
+#include "driver/gpio.h"
 #include "driver/uart.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
@@ -15,12 +16,13 @@ SemaphoreHandle_t command_lock = nullptr;
 
 void spring::modem::start() {
   command_lock = xSemaphoreCreateMutex();
-  const uart_config_t config{.baud_rate = 115200,
-                             .data_bits = UART_DATA_8_BITS,
-                             .parity = UART_PARITY_DISABLE,
-                             .stop_bits = UART_STOP_BITS_1,
-                             .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
-                             .source_clk = UART_SCLK_DEFAULT};
+  uart_config_t config{};
+  config.baud_rate = 115200;
+  config.data_bits = UART_DATA_8_BITS;
+  config.parity = UART_PARITY_DISABLE;
+  config.stop_bits = UART_STOP_BITS_1;
+  config.flow_ctrl = UART_HW_FLOWCTRL_DISABLE;
+  config.source_clk = UART_SCLK_DEFAULT;
   uart_param_config(kPort, &config);
   uart_set_pin(kPort, GPIO_NUM_0, GPIO_NUM_1, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
   uart_driver_install(kPort, 4096, 4096, 16, nullptr, 0);

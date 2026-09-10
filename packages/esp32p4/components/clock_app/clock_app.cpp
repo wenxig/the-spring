@@ -5,7 +5,7 @@ namespace {
 class ClockApplication final : public spring::app::Application {
  public:
   const char* name() const override { return "clock"; }
-  void on_event(unsigned int) override {}
+  void on_event(std::uint32_t) override {}
 };
 ClockApplication application;
 }

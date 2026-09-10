@@ -1,0 +1,38 @@
+dependencies:
+  espressif/esp_modem:
+    component_hash: 71c9f54fc512c60d93ea9763377ceb1d5b575a4616f3f3344440b97e2a38da29
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=4.1'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 1.4.3
+  idf:
+    source:
+      type: idf
+    version: 6.0.2
+  lvgl/lvgl:
+    component_hash: 184e532558c1c45fefed631f3e235423d22582aafb4630f3e8885c35281a49ae
+    dependencies: []
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 9.5.0
+  nopnop2002/sqlite3:
+    component_hash: 3ce2276b96e89abb22d046e73a7b4e48d186453d1323b4e7f533b76f5f7ecb2c
+    dependencies: []
+    source:
+      git: https://github.com/nopnop2002/esp32-idf-sqlite3.git
+      path: components/esp32-idf-sqlite3/
+      type: git
+    version: bf5a8617a9c1933b525f9484ed7e328a1d8bd02f
+direct_dependencies:
+- espressif/esp_modem
+- idf
+- lvgl/lvgl
+- nopnop2002/sqlite3
+manifest_hash: eaed31704aa605aad6fbcd3600f4e705b1a0d09c31a8e9ec16302168a54633ec
+target: esp32p4
+version: 3.0.0

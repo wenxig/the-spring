@@ -24,7 +24,10 @@ spring::network::Link spring::network::active_link() {
 
 spring::network::Response spring::network::get(std::string_view url) {
   if (url.empty() || active_link() == Link::unavailable) return {.status = -1};
-  esp_http_client_config_t config{.url = url.data(), .timeout_ms = 15000};
+  const std::string url_string{url};
+  esp_http_client_config_t config{};
+  config.url = url_string.c_str();
+  config.timeout_ms = 15000;
   esp_http_client_handle_t client = esp_http_client_init(&config);
   if (client == nullptr) return {.status = -1};
   const auto result = esp_http_client_perform(client);
@@ -35,7 +38,10 @@ spring::network::Response spring::network::get(std::string_view url) {
 
 spring::network::Response spring::network::post(std::string_view url, std::string_view body) {
   if (url.empty() || body.empty() || active_link() == Link::unavailable) return {.status = -1};
-  esp_http_client_config_t config{.url = url.data(), .timeout_ms = 15000};
+  const std::string url_string{url};
+  esp_http_client_config_t config{};
+  config.url = url_string.c_str();
+  config.timeout_ms = 15000;
   esp_http_client_handle_t client = esp_http_client_init(&config);
   if (client == nullptr) return {.status = -1};
   esp_http_client_set_method(client, HTTP_METHOD_POST);

@@ -1,0 +1,7 @@
+dependencies:
+  lvgl/lvgl: ">=9.0.0,<10.0.0"
+  espressif/esp_modem: ">=1.3.0,<2.0.0"
+  nopnop2002/sqlite3:
+    path: components/esp32-idf-sqlite3/
+    git: https://github.com/nopnop2002/esp32-idf-sqlite3.git
+  idf: ">=5.5"

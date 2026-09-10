@@ -23,10 +23,11 @@ bool spring::storage::mount_sdcard() {
   slot.d1 = GPIO_NUM_40;
   slot.d2 = GPIO_NUM_41;
   slot.d3 = GPIO_NUM_42;
-  esp_vfs_fat_sdmmc_mount_config_t config{.format_if_mount_failed = false,
-                                          .max_files = 8,
-                                          .allocation_unit_size = 16 * 1024,
-                                          .disk_status_check_enable = false};
+  esp_vfs_fat_sdmmc_mount_config_t config{};
+  config.format_if_mount_failed = false;
+  config.max_files = 8;
+  config.allocation_unit_size = 16 * 1024;
+  config.disk_status_check_enable = false;
   sdmmc_card_t* card = nullptr;
   const auto result = esp_vfs_fat_sdmmc_mount("/sdcard", &host, &slot, &config, &card);
   mounted = result == ESP_OK;
