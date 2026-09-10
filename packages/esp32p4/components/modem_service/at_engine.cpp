@@ -36,16 +36,24 @@ spring::modem::Result spring::modem::execute(std::string_view command, std::uint
   }
   std::string wire{command};
   wire.append("\r\n");
-  if (uart_write_bytes(kPort, wire.data(), wire.size()) < 0) {
+  ESP_LOGI(kTag, "TX: %.*s", static_cast<int>(command.size()), command.data());
+  int written = uart_write_bytes(kPort, wire.data(), wire.size());
+  if (written < 0) {
+    ESP_LOGE(kTag, "UART write failed: %d", written);
     xSemaphoreGive(command_lock);
     return Result::transport_error;
   }
+  ESP_LOGI(kTag, "Wrote %d bytes, waiting for response...", written);
   std::string line;
   const auto deadline = xTaskGetTickCount() + pdMS_TO_TICKS(timeout_ms);
   std::uint8_t byte = 0;
+  int bytes_received = 0;
   while (xTaskGetTickCount() < deadline) {
-    if (uart_read_bytes(kPort, &byte, 1, pdMS_TO_TICKS(50)) != 1) continue;
+    int read = uart_read_bytes(kPort, &byte, 1, pdMS_TO_TICKS(50));
+    if (read != 1) continue;
+    bytes_received++;
     if (byte == '\n') {
+      ESP_LOGI(kTag, "RX line: %s", line.c_str());
       if (is_urc(line)) consume_urc(line);
       if (is_final_ok(line)) {
         xSemaphoreGive(command_lock);
@@ -60,6 +68,7 @@ spring::modem::Result spring::modem::execute(std::string_view command, std::uint
       line.push_back(static_cast<char>(byte));
     }
   }
+  ESP_LOGW(kTag, "Timeout after receiving %d bytes", bytes_received);
   xSemaphoreGive(command_lock);
   return Result::timeout;
 }

@@ -50,5 +50,27 @@ extern "C" void app_main() {
   xTaskCreate(interaction_task, "interaction", 3072, nullptr, 5, nullptr);
   spring::clock_app::register_app();
   spring::ota::mark_boot_valid();
+  
+  // Test EC600X modem communication
+  vTaskDelay(pdMS_TO_TICKS(2000));  // Wait for EC600X to boot
+  ESP_LOGI(kTag, "Testing EC600X modem...");
+  
+  auto result = spring::modem::execute("AT", 3000);
+  ESP_LOGI(kTag, "AT command result: %d", static_cast<int>(result));
+  
+  if (result == spring::modem::Result::ok) {
+    ESP_LOGI(kTag, "EC600X responding, querying module info...");
+    result = spring::modem::execute("ATI", 3000);
+    ESP_LOGI(kTag, "ATI result: %d", static_cast<int>(result));
+    
+    result = spring::modem::execute("AT+CPIN?", 3000);
+    ESP_LOGI(kTag, "AT+CPIN? result: %d", static_cast<int>(result));
+    
+    result = spring::modem::execute("AT+CSQ", 3000);
+    ESP_LOGI(kTag, "AT+CSQ result: %d", static_cast<int>(result));
+  } else {
+    ESP_LOGE(kTag, "EC600X not responding - check connections and power");
+  }
+  
   vTaskDelay(pdMS_TO_TICKS(1000));
 }

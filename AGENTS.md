@@ -113,6 +113,10 @@ VoLTE 首版验收顺序：确认 `AT+CEREG?` 已注册、`AT+CSQ` 信号正常�
 - ESP32-P4 侧按 8 路独立 active-low GPIO 输入接入，使用上拉和软件消抖；当前方案 S1～S8 对应 GPIO4/20/23/26/27/46/47/48，P6 位置见 [免焊接线方案](packages/hardware/README.md)。
 - 涉及该按键板的接线、GPIO 分配、扫描、消抖或事件映射时，读取项目技能 [.agents/skills/8-push-buttons/SKILL.md](.agents/skills/8-push-buttons/SKILL.md)。
 
+### 接线方案
+
+[四板免焊接线方案](packages/hardware/README.md)
+
 ## 项目概览
 
 采用 **pnpm monorepo** 架构。

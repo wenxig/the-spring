@@ -1,9 +1,12 @@
 #include "storage_service.hpp"
 
+#include "driver/gpio.h"
 #include "driver/sdmmc_host.h"
 #include "driver/sdmmc_defs.h"
 #include "esp_log.h"
 #include "esp_vfs_fat.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "sqlite3.h"
 #include <sys/stat.h>
 
@@ -15,14 +18,16 @@ sqlite3* database = nullptr;
 
 bool spring::storage::mount_sdcard() {
   sdmmc_host_t host = SDMMC_HOST_DEFAULT();
+  host.max_freq_khz = SDMMC_FREQ_PROBING;  // Use lowest frequency (400kHz) for maximum compatibility
   sdmmc_slot_config_t slot = SDMMC_SLOT_CONFIG_DEFAULT();
-  slot.width = 4;
+  slot.width = 1;  // Use 1-bit mode for compatibility
   slot.clk = GPIO_NUM_43;
   slot.cmd = GPIO_NUM_44;
   slot.d0 = GPIO_NUM_39;
   slot.d1 = GPIO_NUM_40;
   slot.d2 = GPIO_NUM_41;
   slot.d3 = GPIO_NUM_42;
+  slot.flags |= SDMMC_SLOT_FLAG_INTERNAL_PULLUP;  // Enable internal pull-ups
   esp_vfs_fat_sdmmc_mount_config_t config{};
   config.format_if_mount_failed = false;
   config.max_files = 8;
