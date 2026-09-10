@@ -69,7 +69,8 @@ In cloud environments, use `pnpm exec vp`.
 - 商品页支持全刷和局刷，标称全刷 4 s、局刷 0.6 s、刷新功耗 12.6 mW；实测条件、峰值电流和局刷维护阈值需进一步确认。
 - ESP32-P4 的 C++ 显示服务负责 SPI、复位、BUSY 超时、图像缓冲、刷新策略和休眠恢复。局刷建立在有效旧帧基准上；刷新失败或掉电后重新建立全帧状态。
 - 涉及本屏的接线、驱动、图像转换或调试时，读取项目技能 [.agents/skills/qyeg0420bns830/SKILL.md](.agents/skills/qyeg0420bns830/SKILL.md)。
-- 商品页所附 `QYEG0420BNS830F0_V2.0.pdf` 与示例工程是针序、复位时序、LUT、VCOM 和初始化参数的优先依据。编写技能时附件返回 HTTP 403，具体 FPC/转接板针序和 ESP32 GPIO 映射保持待核对，连接前按随货资料确认。
+- 用户于 2026-09-10 确认驱动板从左到右为 `BUSY / RES / D/C / CS / SCK / SDI / GND / 3.3V`。对应 ESP GPIO 为 `22 / 21 / 6 / 5 / 2 / 3`，电源接 3.3V 与 GND；P6 位置和四板完整连接见 [免焊接线方案](packages/hardware/README.md)。
+- 商品页所附 `QYEG0420BNS830F0_V2.0.pdf` 与示例工程是面板 FPC 针序、复位时序、LUT、VCOM 和初始化参数的优先依据。附件返回 HTTP 403，板级 BUSY/RES 极性、峰值电流和驱动参数仍需随货资料或实测确认。
 
 ### EC600MCNLE 控制边界
 
@@ -109,7 +110,7 @@ VoLTE 首版验收顺序：确认 `AT+CEREG?` 已注册、`AT+CSQ` 信号正常�
 - 项目使用商品图所示的 `8 Push Buttons V1.02` 八键板，板上按键丝印为 `S1` 到 `S8`。
 - 该板顶部为 9 针排针，从 `G` 端开始依次为 `G / K8 / K7 / K6 / K5 / K4 / K3 / K2 / K1`。
 - `G` 接 ESP32-P4 公共地；`K1` 到 `K8` 分别对应 `S1` 到 `S8`，按键按下时对应输入与 `G` 导通。
-- ESP32-P4 侧按 8 路独立 active-low GPIO 输入接入，使用上拉和软件消抖；具体 GPIO 号由板级资源表分配。
+- ESP32-P4 侧按 8 路独立 active-low GPIO 输入接入，使用上拉和软件消抖；当前方案 S1～S8 对应 GPIO4/20/23/26/27/46/47/48，P6 位置见 [免焊接线方案](packages/hardware/README.md)。
 - 涉及该按键板的接线、GPIO 分配、扫描、消抖或事件映射时，读取项目技能 [.agents/skills/8-push-buttons/SKILL.md](.agents/skills/8-push-buttons/SKILL.md)。
 
 ## 项目概览
