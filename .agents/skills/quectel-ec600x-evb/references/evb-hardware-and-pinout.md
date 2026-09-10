@@ -1,6 +1,6 @@
 # 移远 EC600X-EVB 硬件架构与引脚映射
 
-本文档记录移远 QuecPython EC600X-EVB 的硬件规格、电源架构与排针资源。开发板支持 **EC600N-CN、EC600U-CN、EC600M-CN**；本项目当前实装 **EC600M-CN**。
+本文档记录移远 EC600X-EVB 的硬件规格、电源架构与排针资源。开发板支持 **EC600N-CN、EC600U-CN、EC600M-CN**；本项目当前实装 **EC600MCNLE**。
 
 参考文档：<https://developer.quectel.com/doc/quecpython/Dev_board_guide/zh/ec600x-evb.html>
 官方原理图：<https://developer.quectel.com/wp-content/uploads/2024/09/EC600X_EVB_V3.2-SCH.pdf>
@@ -12,7 +12,7 @@
 | 参数项 | 详细规格 |
 | :--- | :--- |
 | **适配模组** | **EC600N-CN、EC600U-CN、EC600M-CN**（LTE Cat 1 bis，支持 10Mbps 下行 / 5Mbps 上行） |
-| **项目实装** | 移远 **EC600M-CN** |
+| **项目实装** | 移远 **EC600MCNLE** |
 | **供电方式** | Type-C 接口 5V 供电 / 外部 DC 电源输入（板载滑动电源开关切换） |
 | **板载电源轨** | 5V 输入、约 3.8V `VBAT`、3.3V、1.8V `VDD_EXT` |
 | **板载传感器** | **AHT20** 温湿度传感器 (I2C 接口)、**GT36528** 光敏电阻 (ADC 通道) |

@@ -1,6 +1,6 @@
-# EC600X 模组核心 AT 指令与网络接入开发指南
+# EC600MCNLE 核心 AT 指令与网络接入开发指南
 
-当 EC600X-EVB 作为纯蜂窝调制解调器（Modem）受控于外部主控芯片（如 ESP32-P4）时，通过 UART0 发送 AT 指令实现网络配置、Socket 数据透传与 MQTT 云端接入。
+本项目的 EC600X-EVB 实装 **EC600MCNLE**，作为蜂窝调制解调器受 ESP32-P4 控制。ESP32-P4 通过 UART0 发送 AT 指令，实现网络配置、Socket 数据传输、MQTT 云端接入与 VoLTE 呼叫控制；命令可用性和 URC 格式以 EC600MCNLE 当前固件对应的 AT 手册为准。
 
 ---
 

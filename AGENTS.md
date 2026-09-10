@@ -59,7 +59,7 @@ In cloud environments, use `pnpm exec vp`.
 
 - 由于这是一个针对嵌入式的项目，以下是物理硬件描述
 - `微雪 ESP32-P4-Module-DEV-KIT`[文档](https://docs.waveshare.net/ESP32-P4-Module-DEV-KIT)，作为主控管理传感器、EC600X 和通过 SPI 连接的奇耘 QYEG0420BNS830 水墨屏。
-- `移远 EC600X开发板`[文档](https://developer.quectel.com/doc/quecpython/Dev_board_guide/zh/ec600x-evb.html)，它是一块4g/volte/cat等围绕移动网络的开发版。内部使用ec600m芯片
+- `移远 EC600X开发板`[文档](https://developer.quectel.com/doc/quecpython/Dev_board_guide/zh/ec600x-evb.html)，它是一块4g/volte/cat等围绕移动网络的开发版。内部使用EC600MCNLE芯片
 
 ### QYEG0420BNS830 水墨屏
 
@@ -71,14 +71,14 @@ In cloud environments, use `pnpm exec vp`.
 - 涉及本屏的接线、驱动、图像转换或调试时，读取项目技能 [.agents/skills/qyeg0420bns830/SKILL.md](.agents/skills/qyeg0420bns830/SKILL.md)。
 - 商品页所附 `QYEG0420BNS830F0_V2.0.pdf` 与示例工程是针序、复位时序、LUT、VCOM 和初始化参数的优先依据。编写技能时附件返回 HTTP 403，具体 FPC/转接板针序和 ESP32 GPIO 映射保持待核对，连接前按随货资料确认。
 
-### EC600M 控制边界
+### EC600MCNLE 控制边界
 
-- EC600M 作为 ESP32-P4 的通信扩展使用，主控程序通过 UART 发送 AT 命令并解析响应和 URC。
-- 网络注册、数据拨号、信号查询、基站定位信息和 VoLTE 控制均由 ESP32-P4 的 C++ 服务封装；EC600M 保持 modem 固件运行。
-- 禁止为 EC600M 新增 QuecPython 应用、Raw REPL 上传流程或依赖 QuecPython 运行时的部署脚本。
+- EC600MCNLE 作为 ESP32-P4 的通信扩展使用，主控程序通过 UART 发送 AT 命令并解析响应和 URC。
+- 网络注册、数据拨号、信号查询、基站定位信息和 VoLTE 控制均由 ESP32-P4 的 C++ 服务封装；EC600MCNLE 保持 modem 固件运行。
+- 禁止为 EC600MCNLE 新增 QuecPython 应用、Raw REPL 上传流程或依赖 QuecPython 运行时的部署脚本。
 - UART 连接遵循 EC600X-EVB J5 的 TX0/RX0/GND 定义，并由主控负责超时、重试、URC 分发和状态机管理。
 
-采用该边界是因为 EC600M 的公开用户开发路径以 QuecPython 或受限的 QuecOpen SDK 为主，macOS 缺少稳定的 Quectel 串口驱动；AT modem 接口由 ESP32-P4 统一管理后，编译、烧录和调试链路保持在主控工程内，EC600M 只承担蜂窝通信能力。
+采用该边界是因为 EC600MCNLE 的公开用户开发路径以 QuecPython 或受限的 QuecOpen SDK 为主，macOS 缺少稳定的 Quectel 串口驱动；AT modem 接口由 ESP32-P4 统一管理后，编译、烧录和调试链路保持在主控工程内，EC600MCNLE 只承担蜂窝通信能力。
 
 ### ESP32-P4 与 EC600X-EVB 物理连接
 
@@ -86,23 +86,23 @@ In cloud environments, use `pnpm exec vp`.
 
 | ESP32-P4（40-Pin） | EC600X-EVB（J5） | 信号 |
 | --- | --- | --- |
-| Pin 1 / GPIO0（UART TX） | J5 Pin 7 / RX0 | ESP32 发送，EC600M 接收 |
-| Pin 2 / GPIO1（UART RX） | J5 Pin 6 / TX0 | EC600M 发送，ESP32 接收 |
+| Pin 1 / GPIO0（UART TX） | J5 Pin 7 / RX0 | ESP32 发送，EC600MCNLE 接收 |
+| Pin 2 / GPIO1（UART RX） | J5 Pin 6 / TX0 | EC600MCNLE 发送，ESP32 接收 |
 | Pin 3、8、13 或 18 / GND | J5 Pin 1、2 或 18 / GND | 公共信号地 |
 
 两块开发板分别使用各自的 USB 供电，连接 UART 前先确认 EC600X-EVB 电源开关处于 USB 挡。J5 的 UART 信号经过 EVB 电平转换器并位于 3.3V 侧，可与 ESP32-P4 GPIO0/GPIO1 连接；J6 Pin 3（1.8V VDD_EXT）和 J6 Pin 18（约 3.8V VBAT）不得接入 ESP32 GPIO 或 3.3V 电源。不要把 EC600X-EVB 的 J6 Pin 1 5V 直接并接到 ESP32-P4 的 3V3_OUT。
 
-PWRKEY、RESET_N、MAIN_RI 没有引出到 EC600X-EVB 的 J5/J6，首版连接通过板载 PWRKEY 和 RESET 按键完成开关机与复位。需要主控自动控制时，再按 EC600M 硬件手册增加晶体管或开漏下拉电路，并为 MAIN_RI 增加电平匹配输入；禁止把这些模组侧信号直接接到 ESP32 GPIO。
+PWRKEY、RESET_N、MAIN_RI 没有引出到 EC600X-EVB 的 J5/J6，首版连接通过板载 PWRKEY 和 RESET 按键完成开关机与复位。需要主控自动控制时，再按 EC600MCNLE 硬件手册增加晶体管或开漏下拉电路，并为 MAIN_RI 增加电平匹配输入；禁止把这些模组侧信号直接接到 ESP32 GPIO。
 
 连接完成后的最小验证顺序是：ESP32 UART 发送 `AT`，等待 `OK`；查询 `AT+CPIN?`、`AT+CEREG?`、`AT+CSQ`，再执行数据拨号和 VoLTE 状态流程。USB 线仅用于分别烧录和日志查看，开发板之间的业务通信使用上述 UART 线。
 
 ### VoLTE 与 PCM 音频
 
-VoLTE 的呼叫控制和音频承载分成两条链路：ESP32-P4 通过 UART 发送 `ATD<number>;`、`ATA`、`ATH` 并解析来电、接通和挂断 URC；通话语音由 EC600M 的音频接口承载。当前 EC600X-EVB 已把 EC600M 的模拟麦克风输入和差分扬声器输出接到板载 GMI6050P/NS4160，首版 VoLTE 使用板载麦克风和扬声器即可，ESP32 不需要传输 PCM 数据。
+VoLTE 的呼叫控制和音频承载分成两条链路：ESP32-P4 通过 UART 发送 `ATD<number>;`、`ATA`、`ATH` 并解析来电、接通和挂断 URC；通话语音由 EC600MCNLE 的音频接口承载。当前 EC600X-EVB 已把 EC600MCNLE 的模拟麦克风输入和差分扬声器输出接到板载 GMI6050P/NS4160，首版 VoLTE 使用板载麦克风和扬声器即可，ESP32 不需要传输 PCM 数据。
 
-PCM/数字音频只有在产品需要 ESP32 处理语音、回声消除或外接 Codec 时才启用。现有 J5/J6 排针没有列出 PCM_CLK、PCM_SYNC、PCM_DIN、PCM_DOUT，不能从排针直接接线；必须依据 EC600M 硬件手册和 EVB 原理图确认模组焊盘、1.8V 电平、主从时钟和 Codec 连接，再设计电平转换及音频 Codec。ESP32-P4 的普通 I2S GPIO 不可直接当作 EC600M PCM 接口。
+PCM/数字音频只有在产品需要 ESP32 处理语音、回声消除或外接 Codec 时才启用。现有 J5/J6 排针没有列出 PCM_CLK、PCM_SYNC、PCM_DIN、PCM_DOUT，不能从排针直接接线；必须依据 EC600MCNLE 硬件手册和 EVB 原理图确认模组焊盘、1.8V 电平、主从时钟和 Codec 连接，再设计电平转换及音频 Codec。ESP32-P4 的普通 I2S GPIO 不可直接当作 EC600MCNLE PCM 接口。
 
-VoLTE 首版验收顺序：确认 `AT+CEREG?` 已注册、`AT+CSQ` 信号正常，使用 `ATD<number>;` 发起呼叫，监听 `VOICE CALL: BEGIN`/厂商对应 URC，确认板载扬声器和麦克风通话，再用 `ATH` 结束。具体音频通道、音量和 PCM 复用命令必须以 EC600M 当前固件 AT 手册为准，代码中集中封装并保留超时与失败回滚。
+VoLTE 首版验收顺序：确认 `AT+CEREG?` 已注册、`AT+CSQ` 信号正常，使用 `ATD<number>;` 发起呼叫，监听 `VOICE CALL: BEGIN`/厂商对应 URC，确认板载扬声器和麦克风通话，再用 `ATH` 结束。具体音频通道、音量和 PCM 复用命令必须以 EC600MCNLE 当前固件 AT 手册为准，代码中集中封装并保留超时与失败回滚。
 
 ### 8 Push Buttons V1.02 按键板
 
