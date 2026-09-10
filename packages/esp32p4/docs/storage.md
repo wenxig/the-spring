@@ -4,4 +4,4 @@
 
 SQLite 数据库放在 `/sdcard/data/spring.sqlite3`，通过 `espressif/esp-sqlite` 集成。数据库访问集中在 Storage 任务，其他任务通过队列或服务接口提交事务，避免多个 FreeRTOS 任务直接共享连接。启动时创建目录、数据库和 schema；写入采用短事务并定期 checkpoint。
 
-分区表保留 NVS、单 factory 固件和约 11MB 内置 FAT 分区。SQLite 主数据位于 SD 卡，内置 FAT 仅作为配置/故障转储备用。后续若需要 OTA，应改为双 OTA 分区并重新评估内置数据分区。
+分区表采用 `otadata + ota_0 + ota_1` 双槽回滚布局，内置 FAT 分区约 6MB，用于配置和故障转储。SQLite 主数据位于 SD 卡。
