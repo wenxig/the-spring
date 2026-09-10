@@ -37,6 +37,12 @@ void spring::display::force_full_refresh() { baseline_valid = true; }
 
 spring::display::Rect spring::display::pending_area() { return dirty; }
 
+spring::display::Rect spring::display::take_pending_area() {
+  const auto area = dirty;
+  dirty = {0, 0, 0, 0};
+  return area;
+}
+
 bool spring::display::write_pixel(std::uint16_t x, std::uint16_t y, bool black) {
   if (x >= 400 || y >= 300) return false;
   const auto index = static_cast<std::size_t>(y) * 50U + x / 8U;

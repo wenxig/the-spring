@@ -11,4 +11,5 @@ void invalidate(Rect area);
 void force_full_refresh();
 bool write_pixel(std::uint16_t x, std::uint16_t y, bool black);
 Rect pending_area();
+Rect take_pending_area();
 }  // namespace spring::display
