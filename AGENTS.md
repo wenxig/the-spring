@@ -58,8 +58,18 @@ In cloud environments, use `pnpm exec vp`.
 ### 物理架构
 
 - 由于这是一个针对嵌入式的项目，以下是物理硬件描述
-- `微雪 ESP32-P4-Module-DEV-KIT`[文档](https://docs.waveshare.net/ESP32-P4-Module-DEV-KIT)，它作为主要的控制板统领传感器和`ec600x`以及一块通过spi连接的水墨屏
+- `微雪 ESP32-P4-Module-DEV-KIT`[文档](https://docs.waveshare.net/ESP32-P4-Module-DEV-KIT)，作为主控管理传感器、EC600X 和通过 SPI 连接的奇耘 QYEG0420BNS830 水墨屏。
 - `移远 EC600X开发板`[文档](https://developer.quectel.com/doc/quecpython/Dev_board_guide/zh/ec600x-evb.html)，它是一块4g/volte/cat等围绕移动网络的开发版。内部使用ec600m芯片
+
+### QYEG0420BNS830 水墨屏
+
+- 项目水墨屏为大连奇耘电子的 **QYEG0420BNS830**，依据[用户指定商品页](https://www.qiyun-display.cn/Products_1/72.html)。4.2 英寸、黑白双态、400×300、120 dpi，控制器为 SSD1683。
+- 显示区域 84.8×63.6 mm，外形 91.0×77.0×1.2 mm；单色图像每行 50 字节，整帧 15,000 字节。
+- 面板工作电压 2.3–3.6 V，工作温度 0–50 ℃，储存温度 -25–70 ℃。项目采用 3.3 V 逻辑域，供电入口和外围电路按实际驱动板版本核对。
+- 商品页支持全刷和局刷，标称全刷 4 s、局刷 0.6 s、刷新功耗 12.6 mW；实测条件、峰值电流和局刷维护阈值需进一步确认。
+- ESP32-P4 的 C++ 显示服务负责 SPI、复位、BUSY 超时、图像缓冲、刷新策略和休眠恢复。局刷建立在有效旧帧基准上；刷新失败或掉电后重新建立全帧状态。
+- 涉及本屏的接线、驱动、图像转换或调试时，读取项目技能 [.agents/skills/qyeg0420bns830/SKILL.md](.agents/skills/qyeg0420bns830/SKILL.md)。
+- 商品页所附 `QYEG0420BNS830F0_V2.0.pdf` 与示例工程是针序、复位时序、LUT、VCOM 和初始化参数的优先依据。编写技能时附件返回 HTTP 403，具体 FPC/转接板针序和 ESP32 GPIO 映射保持待核对，连接前按随货资料确认。
 
 ### EC600M 控制边界
 
