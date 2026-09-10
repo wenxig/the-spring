@@ -1,6 +1,9 @@
 #include "at_engine.hpp"
 #include "driver/uart.h"
 #include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include <string>
 
 namespace {
 constexpr char kTag[] = "modem";
@@ -22,10 +25,25 @@ void spring::modem::start() {
 }
 
 spring::modem::Result spring::modem::execute(std::string_view command, std::uint32_t timeout_ms) {
-  (void)timeout_ms;
   if (command.empty()) return Result::rejected;
-  ++state.revision;
-  return Result::ok;
+  std::string wire{command};
+  wire.append("\r\n");
+  if (uart_write_bytes(kPort, wire.data(), wire.size()) < 0) return Result::transport_error;
+  std::string line;
+  const auto deadline = xTaskGetTickCount() + pdMS_TO_TICKS(timeout_ms);
+  std::uint8_t byte = 0;
+  while (xTaskGetTickCount() < deadline) {
+    if (uart_read_bytes(kPort, &byte, 1, pdMS_TO_TICKS(50)) != 1) continue;
+    if (byte == '\n') {
+      if (is_urc(line)) consume_urc(line);
+      if (is_final_ok(line)) return Result::ok;
+      if (is_final_error(line)) return Result::rejected;
+      line.clear();
+    } else if (byte != '\r') {
+      line.push_back(static_cast<char>(byte));
+    }
+  }
+  return Result::timeout;
 }
 
 spring::modem::Snapshot spring::modem::snapshot() { return state; }
