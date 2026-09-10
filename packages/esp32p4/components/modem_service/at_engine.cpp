@@ -30,6 +30,23 @@ spring::modem::Result spring::modem::execute(std::string_view command, std::uint
 
 spring::modem::Snapshot spring::modem::snapshot() { return state; }
 
+void spring::modem::consume_urc(std::string_view line) {
+  if (line.starts_with("+CEREG: 1") || line.starts_with("+CEREG: 5")) {
+    state.registered = true;
+  } else if (line.starts_with("+CEREG:")) {
+    state.registered = false;
+  } else if (line.starts_with("+CGATT: 1")) {
+    state.data_attached = true;
+  } else if (line.starts_with("+CGATT:")) {
+    state.data_attached = false;
+  } else if (line.starts_with("VOICE CALL: BEGIN")) {
+    state.call_active = true;
+  } else if (line.starts_with("VOICE CALL: END")) {
+    state.call_active = false;
+  }
+  ++state.revision;
+}
+
 bool spring::modem::is_urc(std::string_view line) {
   return line.starts_with("+CEREG:") || line.starts_with("+CSQ:") ||
          line.starts_with("+CLIP:") || line.starts_with("VOICE CALL:") ||

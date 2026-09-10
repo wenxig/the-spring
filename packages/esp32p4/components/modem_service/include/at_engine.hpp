@@ -19,6 +19,7 @@ struct Snapshot {
 void start();
 Result execute(std::string_view command, std::uint32_t timeout_ms);
 Snapshot snapshot();
+void consume_urc(std::string_view line);
 bool is_urc(std::string_view line);
 bool is_final_ok(std::string_view line);
 bool is_final_error(std::string_view line);
