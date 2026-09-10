@@ -3,6 +3,7 @@
 
 namespace {
 bool baseline_valid = false;
+std::uint8_t frame[spring::display::kFrameBytes]{};
 }
 
 void spring::display::start() {
@@ -21,3 +22,13 @@ void spring::display::invalidate(Rect area) {
 }
 
 void spring::display::force_full_refresh() { baseline_valid = true; }
+
+bool spring::display::write_pixel(std::uint16_t x, std::uint16_t y, bool black) {
+  if (x >= 400 || y >= 300) return false;
+  const auto index = static_cast<std::size_t>(y) * 50U + x / 8U;
+  const auto mask = static_cast<std::uint8_t>(0x80U >> (x % 8U));
+  if (black) frame[index] |= mask;
+  else frame[index] &= static_cast<std::uint8_t>(~mask);
+  invalidate({x, y, 1, 1});
+  return true;
+}
