@@ -10,6 +10,7 @@
 #include "network_service.hpp"
 #include "clock_app.hpp"
 #include "ota_service.hpp"
+#include "wifi_service.hpp"
 
 namespace {
 constexpr char kTag[] = "the_spring";
@@ -24,6 +25,7 @@ extern "C" void app_main() {
   spring::modem::start();
   spring::storage::mount_sdcard();
   spring::network::start();
+  spring::wifi::start();
   spring::clock_app::register_app();
   spring::ota::mark_boot_valid();
   vTaskDelay(pdMS_TO_TICKS(1000));
