@@ -22,7 +22,7 @@ description: 微雪 (Waveshare) ESP32-P4-Module-DEV-KIT 开发板开发与硬件
 | **音频系统** | ES8311 音频 Codec + NS4150B Class D 功放，板载贴片麦克风、3.5mm 耳机接口与 MX1.25 喇叭座 |
 | **显示与相机** | 15-Pin MIPI-DSI (2-lane，最高 1080P) + 15-Pin MIPI-CSI (2-lane，支持硬件 ISP 与 H.264 编码) |
 | **USB 与调试** | Type-C UART 调试烧录口 (CH343P)、Type-C USB (ESP32-P4 原生)、Type-A USB 2.0 High Speed OTG (480Mbps) |
-| **扩展接口** | 2x20 40-Pin 排针，引出 28 个可编程 GPIO，兼容树莓派 Pico 扩展形式 |
+| **扩展接口** | 2x20 40-Pin 排针，引出 28 个可编程 GPIO，采用 P6 双列排针，位置见硬件参考 |
 | **存储扩展** | 标准 MicroSD (TF) 弹片插槽，支持 4-bit SDIO 3.0 (SDMMC) |
 
 ---
@@ -59,5 +59,5 @@ description: 微雪 (Waveshare) ESP32-P4-Module-DEV-KIT 开发板开发与硬件
 - 若无法识别下载，按住 **BOOT** 键，点按 **RST** 键，松开 **BOOT** 键即可强制进入烧录模式。
 
 ### 3. 系统集成与总线规划
-- **EC600X 模组连接**：通过 GPIO0/GPIO1 (UART0) 或分配独立 UART 引脚连接 EC600X 的 Main UART，搭配 GPIO 控制 PWRKEY 和检测 RI 信号。
+- **EC600X 模组连接**：将独立 UART1 映射到 GPIO0/GPIO1（P6-24/P6-21），连接 EC600X 的 Main UART；开关机与复位使用 EC 板载按键。
 - **SPI 水墨屏连接**：分配标准硬件 SPI 引脚（SCLK, MOSI, CS, DC, RST, BUSY），利用 DMA 缓冲区刷新墨水屏显存。

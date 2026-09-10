@@ -43,39 +43,44 @@
 - **SCL**: `GPIO8`
 - *注：用于控制 ES8311、MIPI-DSI 触摸芯片、MIPI-CSI 摄像头模组配置*
 
-### 2.4 USB 2.0 High-Speed OTG (480Mbps)
-- **DP**: `GPIO27`
-- **DM**: `GPIO26`
-- 可通过板载跳线帽在 Host / Device 之间切换控制
+### 2.4 USB、调试与其他共享资源
 
-### 2.5 ESP32-C6 无线通信总线
-- 内部通过专用 SDIO 总线及流控/中断引脚（GPIO14~GPIO20 区域内部专用）与 ESP32-P4 互联通信。
+- CH343P 调试 UART0：TX=`GPIO37`、RX=`GPIO38`，连接器 P6 也引出这两个网络。
+- 原生 USB 1.1 Type-C：D−=`GPIO24`、D+=`GPIO25`。
+- USB High-Speed：模组专用 DP/DM，经 USB 切换芯片连接 USB 接口。
+- `GPIO26`、`GPIO27` 在官方原理图中作为扩展 GPIO 引出。
+- `GPIO32`、`GPIO33` 接 J9 扩展口，具有板载 2.2 kΩ 上拉。
+- `GPIO45` 接 MicroSD 电源 MOS 控制网络；`GPIO53` 接功放控制网络。
+- `GPIO34`～`GPIO38` 涉及芯片启动配置，分配外设时需核对启动采样条件；`GPIO35` 还接 BOOT 与以太网网络。
+- ESP32-C6 通过模组内部 SDIO 连接；P6 引出的 `GPIO20` 可按原理图用作扩展 GPIO。
 
----
+## 3. P6 40 针扩展排针
 
-## 3. 2x20 40-Pin 扩展端子引脚定义
+依据 [官方引脚图](https://www.waveshare.com/w/upload/3/3b/ESP32-P4-Module-DEV-KIT-details-intro.jpg) 与 [官方原理图](https://files.waveshare.com/wiki/ESP32-P4-Module-DEV-KIT/ESP32-P4-Module-DEV-KIT.pdf) 第 1 页核验，日期 2026-09-10。
 
-开发板引出 28 个可编程 GPIO，引脚排列兼容树莓派 Pico 扩展生态：
+观察元件面，将 40 针排针放在板子右侧，C6 UART 接口位于上方，USB HOST/DEVICE 跳帽位于下方。从上往下数 20 行，左列靠主控、右列靠板边。P6 左列为偶数脚，右列为奇数脚；行号与 GPIO 编号分别记录。
 
-| 引脚编号 | 左侧定义 (Pin 1~20) | 引脚编号 | 右侧定义 (Pin 21~40) |
-| :--- | :--- | :--- | :--- |
-| **1** | **GPIO0** (UART0 TX / PWM / ADC) | **40** | **VBUS / VSYS** (5V 输入电源轨) |
-| **2** | **GPIO1** (UART0 RX / PWM / ADC) | **39** | **VSYS** (系统 5V 轨) |
-| **3** | **GND** | **38** | **GND** |
-| **4** | **GPIO2** (通用 GPIO / SPI SCK) | **37** | **3V3_EN** (3.3V DCDC 降压使能) |
-| **5** | **GPIO3** (通用 GPIO / SPI MOSI) | **36** | **3V3_OUT** (板载 3.3V 输出) |
-| **6** | **GPIO4** (通用 GPIO / SPI MISO) | **35** | **ADC_VREF** (ADC 参考电压) |
-| **7** | **GPIO5** (通用 GPIO / SPI CS) | **34** | **GPIO25** (ADC 通道 / 通用 GPIO) |
-| **8** | **GND** | **33** | **GND** |
-| **9** | **GPIO6** (通用 GPIO / I2C SDA) | **32** | **GPIO24** (ADC 通道 / 通用 GPIO) |
-| **10** | **GPIO7** (I2C0 SDA / 通用 GPIO) | **31** | **GPIO23** (ADC 通道 / 通用 GPIO) |
-| **11** | **GPIO8** (I2C0 SCL / 通用 GPIO) | **30** | **GPIO22** (ADC 通道 / 通用 GPIO) |
-| **12** | **GPIO9** (I2S DOUT / 通用 GPIO) | **29** | **GPIO21** (通用 GPIO) |
-| **13** | **GND** | **28** | **GND** |
-| **14** | **GPIO10** (I2S WS / 通用 GPIO) | **27** | **GPIO20** (通用 GPIO) |
-| **15** | **GPIO11** (I2S DIN / 通用 GPIO) | **26** | **GPIO19** (通用 GPIO) |
-| **16** | **GPIO12** (I2S BCLK / 通用 GPIO) | **25** | **GPIO18** (通用 GPIO) |
-| **17** | **GPIO13** (I2S MCLK / 通用 GPIO) | **24** | **GPIO17** (通用 GPIO) |
-| **18** | **GND** | **23** | **GND** |
-| **19** | **GPIO14** (通用 GPIO) | **22** | **GPIO16** (通用 GPIO) |
-| **20** | **GPIO15** (通用 GPIO) | **21** | **GPIO32** (通用 GPIO) |
+| 从上数行号 | 左列 P6 脚号 | 左列信号 | 右列 P6 脚号 | 右列信号 |
+| ---: | ---: | --- | ---: | --- |
+| 1 | 2 | 3V3 | 1 | 5V |
+| 2 | 4 | GPIO7 / SDA | 3 | 5V |
+| 3 | 6 | GPIO8 / SCL | 5 | GND |
+| 4 | 8 | GPIO23 | 7 | GPIO37 / 调试 TX |
+| 5 | 10 | GND | 9 | GPIO38 / 调试 RX |
+| 6 | 12 | GPIO21 | 11 | GPIO22 |
+| 7 | 14 | GPIO20 | 13 | GND |
+| 8 | 16 | GPIO6 | 15 | GPIO5 |
+| 9 | 18 | 3V3 | 17 | GPIO4 |
+| 10 | 20 | GPIO3 | 19 | GND |
+| 11 | 22 | GPIO2 | 21 | GPIO1 |
+| 12 | 24 | GPIO0 | 23 | GPIO36 |
+| 13 | 26 | GND | 25 | GPIO32 |
+| 14 | 28 | GPIO24 / USB D− | 27 | GPIO25 / USB D+ |
+| 15 | 30 | GPIO33 | 29 | GND |
+| 16 | 32 | GPIO26 | 31 | GPIO54 |
+| 17 | 34 | GPIO48 | 33 | GND |
+| 18 | 36 | GPIO53 / 功放控制 | 35 | GPIO46 |
+| 19 | 38 | GPIO47 | 37 | GPIO27 |
+| 20 | 40 | GND | 39 | GPIO45 / SD 电源控制 |
+
+接线采用本表和实物丝印共同定位。P6 的 3V3 为板载稳压输出，屏幕电流预算需包含刷新峰值与主板同时运行负载。

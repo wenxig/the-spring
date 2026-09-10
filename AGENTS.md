@@ -82,13 +82,13 @@ In cloud environments, use `pnpm exec vp`.
 
 ### ESP32-P4 与 EC600X-EVB 物理连接
 
-按当前两块开发板的排针定义，UART0 主串口采用交叉连接：
+主控使用 UART1 映射至 GPIO0/GPIO1，连接 EC 的 UART0 主串口。ESP 排针按元件面、排针在右、C6 UART 在上方的方向定位：
 
 | ESP32-P4（40-Pin） | EC600X-EVB（J5） | 信号 |
 | --- | --- | --- |
-| Pin 1 / GPIO0（UART TX） | J5 Pin 7 / RX0 | ESP32 发送，EC600MCNLE 接收 |
-| Pin 2 / GPIO1（UART RX） | J5 Pin 6 / TX0 | EC600MCNLE 发送，ESP32 接收 |
-| Pin 3、8、13 或 18 / GND | J5 Pin 1、2 或 18 / GND | 公共信号地 |
+| P6-24 / 第 12 行左 / GPIO0（UART TX） | J5 Pin 7 / RX0 | ESP32 发送，EC600MCNLE 接收 |
+| P6-21 / 第 11 行右 / GPIO1（UART RX） | J5 Pin 6 / TX0 | EC600MCNLE 发送，ESP32 接收 |
+| P6-26 / 第 13 行左 / GND | J5 Pin 1、2 或 18 / GND | 公共信号地 |
 
 两块开发板分别使用各自的 USB 供电，连接 UART 前先确认 EC600X-EVB 电源开关处于 USB 挡。J5 的 UART 信号经过 EVB 电平转换器并位于 3.3V 侧，可与 ESP32-P4 GPIO0/GPIO1 连接；J6 Pin 3（1.8V VDD_EXT）和 J6 Pin 18（约 3.8V VBAT）不得接入 ESP32 GPIO 或 3.3V 电源。不要把 EC600X-EVB 的 J6 Pin 1 5V 直接并接到 ESP32-P4 的 3V3_OUT。
 

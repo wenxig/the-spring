@@ -11,24 +11,29 @@
 2. **移远 EC600X 开发板**
 3. **各类 I2C / ADC 传感器**
 
-### 1.1 SPI 水墨屏驱动引脚建议
-水墨屏通常需要 4 线或 3 线 SPI 接口加控制引脚（BUSY, RST, DC, CS）：
-- **SCLK**: `GPIO2` (40-Pin Pin 4)
-- **MOSI (DIN)**: `GPIO3` (40-Pin Pin 5)
-- **CS**: `GPIO5` (40-Pin Pin 7)
-- **DC (Data/Command)**: `GPIO6` (40-Pin Pin 9)
-- **RST (Reset)**: `GPIO21` (40-Pin Pin 29)
-- **BUSY**: `GPIO22` (40-Pin Pin 30，配置为输入中断)
+### 1.1 SPI 水墨屏驱动引脚
 
-### 1.2 EC600X 通信引脚规划
-EC600X 与 ESP32-P4 的通信推荐走硬件 UART：
-- **ESP32-P4 TX -> EC600X RX**: 使用 `GPIO0` (Pin 1) 或配置独立串口引脚如 `GPIO24`
-- **ESP32-P4 RX <- EC600X TX**: 使用 `GPIO1` (Pin 2) 或配置独立串口引脚如 `GPIO25`
-- **PWRKEY 唤醒/开机引脚**: 使用 `GPIO17` (Pin 24)，通过匹配模组电平的晶体管/MOS 控制电路下拉，时序按所装模组硬件手册执行
-- **RESET_N 紧急复位**: 使用 `GPIO18` (Pin 25)，通过匹配模组电平的复位控制电路连接
-- **MAIN_RI 唤醒中断**: 使用 `GPIO19` (Pin 26，配置外部边沿中断)，通过匹配模组电平的输入电路连接
+项目 QYEG0420BNS830 驱动板采用四线 SPI：
 
-> **电平与引脚注意**：EC600X-EVB V3.2 原理图显示，J5 的 UART、SPI、I2C 等总线经过 `TXS0108E` 类电平转换后位于 3.3V 侧，可按 EVB 排针定义连接 ESP32-P4。官方 J5/J6 未引出 `PWRKEY`、`RESET_N`、`MAIN_RI`，项目侧 GPIO17/18/19 需要另行连接匹配的控制与输入电路。J6 Pin 3 为 1.8V `VDD_EXT`，Pin 18 为约 3.8V `VBAT`，均不可作为 3.3V 逻辑信号使用。
+| 信号 | GPIO | P6 脚号 | 位置 |
+| --- | ---: | ---: | --- |
+| SCK | 2 | 22 | 第 11 行左 |
+| SDI / MOSI | 3 | 20 | 第 10 行左 |
+| CS | 5 | 15 | 第 8 行右 |
+| D/C | 6 | 16 | 第 8 行左 |
+| RES | 21 | 12 | 第 6 行左 |
+| BUSY | 22 | 11 | 第 6 行右 |
+
+位置观察方向见 [排针表](hardware-specs-and-pinout.md)。驱动板八针顺序与电源定义见 [屏幕硬件参考](../../qyeg0420bns830/references/hardware.md)。
+
+### 1.2 EC600X 通信引脚
+
+- ESP32-P4 GPIO0（P6-24，第 12 行左）TX → EC600X J5-7 RX0。
+- ESP32-P4 GPIO1（P6-21，第 11 行右）RX ← EC600X J5-6 TX0。
+- ESP32-P4 P6-26（第 13 行左，GND）↔ EC600X J5-1 GND。
+- 固件使用独立 UART1，并通过 GPIO matrix 映射到 GPIO0/1；UART0 调试保持 GPIO37/38。EC 端的 TX0/RX0 表示 EC 主串口。
+- EC600X-EVB V3.2 的 J5 串口信号经板载电平转换处于 3.3V 域。两块开发板分别 USB 供电，公共信号地相连。
+- EC 开关机与复位使用板载 PWRKEY/RESET；J5/J6 的可插接信号不包含 PWRKEY、RESET_N、MAIN_RI 和 PCM。
 
 ---
 
