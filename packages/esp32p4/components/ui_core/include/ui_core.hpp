@@ -15,8 +15,10 @@ class Frame {
   void box(Rect rect); void text(std::uint16_t x, std::uint16_t y, const char* value);
   [[nodiscard]] const auto& bytes() const { return data_; }
   [[nodiscard]] bool is_black(std::uint16_t x, std::uint16_t y) const;
+  [[nodiscard]] Rect difference(const Frame& previous) const;
  private: std::array<std::uint8_t, kBytes> data_{};
 };
+[[nodiscard]] Rect align_dirty(Rect dirty);
 class Router {
  public:
   [[nodiscard]] Route route() const { return route_; }
