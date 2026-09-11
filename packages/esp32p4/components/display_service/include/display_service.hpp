@@ -2,12 +2,14 @@
 
 #include <cstdint>
 #include <cstddef>
+#include <span>
 namespace spring::ui { class Frame; }
 
 namespace spring::display {
 enum class Backend : std::uint8_t { buffer_only, epaper };
 struct Rect { std::uint16_t x, y, width, height; };
 constexpr std::size_t kFrameBytes = 15000;
+std::span<const std::uint8_t> frame_bytes();
 void start(Backend backend = Backend::buffer_only);
 Backend backend();
 std::uint32_t frame_checksum();
