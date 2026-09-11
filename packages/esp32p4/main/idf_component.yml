@@ -7,3 +7,4 @@ dependencies:
   idf: '>=5.5'
   espressif/usb: '*'
   espressif/usb_host_cdc_acm: '*'
+  espressif/cjson: '*'

@@ -1,20 +1,25 @@
 #include "storage_service.hpp"
 
+#include "cJSON.h"
 #include "driver/gpio.h"
 #include "driver/sdmmc_host.h"
 #include "driver/sdmmc_defs.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "esp_vfs_fat.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "sd_pwr_ctrl_by_on_chip_ldo.h"
-#include "sqlite3.h"
 #include <sys/stat.h>
+#include <cstdio>
+#include <cstring>
+#include <string>
 
 namespace {
 constexpr char kTag[] = "storage";
+constexpr char kDbDir[] = "/sdcard/db";
+constexpr char kEventsFile[] = "/sdcard/db/events.json";
 bool mounted = false;
-sqlite3* database = nullptr;
 sd_pwr_ctrl_handle_t pwr_ctrl_handle = nullptr;
 }
 
@@ -73,8 +78,9 @@ bool spring::storage::mount_sdcard() {
     return false;
   }
   
-  ESP_LOGI(kTag, "SD card mounted successfully, creating data directory");
+  ESP_LOGI(kTag, "SD card mounted successfully, creating directories");
   mkdir("/sdcard/data", 0755);
+  mkdir(kDbDir, 0755);
   
   // Test file write/read
   ESP_LOGI(kTag, "Testing SD card write/read...");
@@ -98,27 +104,91 @@ bool spring::storage::mount_sdcard() {
   fclose(f);
   ESP_LOGI(kTag, "SD card test successful, read: %s", line);
   
-  // TODO: SQLite initialization disabled due to crash on ESP32-P4
-  // Will be re-enabled after investigating nopnop2002__sqlite3 compatibility
-  ESP_LOGW(kTag, "SQLite disabled temporarily - SD card file I/O works");
+  // Initialize events.json if it doesn't exist
+  f = fopen(kEventsFile, "r");
+  if (f == nullptr) {
+    ESP_LOGI(kTag, "Creating events database: %s", kEventsFile);
+    f = fopen(kEventsFile, "w");
+    if (f) {
+      fprintf(f, "[]");  // Empty JSON array
+      fclose(f);
+    } else {
+      ESP_LOGE(kTag, "Failed to create events database");
+      mounted = false;
+      return false;
+    }
+  } else {
+    fclose(f);
+    ESP_LOGI(kTag, "Events database exists: %s", kEventsFile);
+  }
   
-  ESP_LOGI(kTag, "Storage service initialized successfully (SD card only)");
+  ESP_LOGI(kTag, "Storage service initialized successfully (cJSON KV + SD card)");
   return true;
 }
 
 bool spring::storage::append_event(std::string_view type, std::string_view payload) {
   if (!mounted || type.empty() || payload.empty()) return false;
-  sqlite3_stmt* statement = nullptr;
-  constexpr char sql[] = "INSERT INTO events(type,payload,created_at) VALUES(?,?,unixepoch());";
-  if (sqlite3_exec(database, "BEGIN;", nullptr, nullptr, nullptr) != SQLITE_OK) return false;
-  if (sqlite3_prepare_v2(database, sql, -1, &statement, nullptr) != SQLITE_OK) {
-    sqlite3_exec(database, "ROLLBACK;", nullptr, nullptr, nullptr);
+  
+  // Read existing events
+  FILE* f = fopen(kEventsFile, "r");
+  if (!f) {
+    ESP_LOGE(kTag, "Failed to open events file for reading");
     return false;
   }
-  sqlite3_bind_text(statement, 1, type.data(), static_cast<int>(type.size()), SQLITE_TRANSIENT);
-  sqlite3_bind_text(statement, 2, payload.data(), static_cast<int>(payload.size()), SQLITE_TRANSIENT);
-  const bool success = sqlite3_step(statement) == SQLITE_DONE;
-  sqlite3_finalize(statement);
-  sqlite3_exec(database, success ? "COMMIT;" : "ROLLBACK;", nullptr, nullptr, nullptr);
-  return success;
+  
+  fseek(f, 0, SEEK_END);
+  long fsize = ftell(f);
+  fseek(f, 0, SEEK_SET);
+  
+  char* json_str = static_cast<char*>(malloc(fsize + 1));
+  if (!json_str) {
+    fclose(f);
+    ESP_LOGE(kTag, "Failed to allocate memory for JSON");
+    return false;
+  }
+  
+  fread(json_str, 1, fsize, f);
+  json_str[fsize] = '\0';
+  fclose(f);
+  
+  // Parse JSON array
+  cJSON* events = cJSON_Parse(json_str);
+  free(json_str);
+  
+  if (!events || !cJSON_IsArray(events)) {
+    ESP_LOGE(kTag, "Failed to parse events JSON");
+    if (events) cJSON_Delete(events);
+    return false;
+  }
+  
+  // Create new event object
+  cJSON* event = cJSON_CreateObject();
+  cJSON_AddStringToObject(event, "type", std::string(type).c_str());
+  cJSON_AddStringToObject(event, "payload", std::string(payload).c_str());
+  cJSON_AddNumberToObject(event, "timestamp", static_cast<double>(esp_timer_get_time() / 1000000));
+  
+  // Append to array
+  cJSON_AddItemToArray(events, event);
+  
+  // Write back to file
+  char* new_json_str = cJSON_Print(events);
+  cJSON_Delete(events);
+  
+  if (!new_json_str) {
+    ESP_LOGE(kTag, "Failed to serialize JSON");
+    return false;
+  }
+  
+  f = fopen(kEventsFile, "w");
+  if (!f) {
+    cJSON_free(new_json_str);
+    ESP_LOGE(kTag, "Failed to open events file for writing");
+    return false;
+  }
+  
+  fprintf(f, "%s", new_json_str);
+  fclose(f);
+  cJSON_free(new_json_str);
+  
+  return true;
 }

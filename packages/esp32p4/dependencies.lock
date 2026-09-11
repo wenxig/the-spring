@@ -1,4 +1,14 @@
 dependencies:
+  espressif/cjson:
+    component_hash: e788323270d90738662d66fffa910bfe1fba019bba087f01557e70c40485b469
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=5.0'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 1.7.19~2
   espressif/esp_modem:
     component_hash: 71c9f54fc512c60d93ea9763377ceb1d5b575a4616f3f3344440b97e2a38da29
     dependencies:
@@ -70,12 +80,13 @@ dependencies:
       type: git
     version: bf5a8617a9c1933b525f9484ed7e328a1d8bd02f
 direct_dependencies:
+- espressif/cjson
 - espressif/esp_modem
 - espressif/usb
 - espressif/usb_host_cdc_acm
 - idf
 - lvgl/lvgl
 - nopnop2002/sqlite3
-manifest_hash: f1f901af16c49fd751db39576bcab3a882bdf4b9be7c91f1465a92a98e0636db
+manifest_hash: 01ae5c2aca4d4b0a832a522a84e352c012e8306f168f214491e0378b1cb7d96e
 target: esp32p4
 version: 3.0.0
