@@ -21,4 +21,10 @@ packages/epaper-simulator/build/epaper_simulator /tmp/clock.pbm
 python3 capture_frame.py frame.pbm --input serial.log
 ```
 
+也可以直接监听开发板 USB 串口，收到第一帧后退出并生成图片：
+
+```sh
+python3 capture_frame.py frame.pbm --port /dev/cu.usbmodemXXXX --baud 115200
+```
+
 工具只接受版本、长度、尾标记和 FNV-1a 全部正确的完整帧。
