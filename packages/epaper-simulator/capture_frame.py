@@ -1,47 +1,38 @@
 #!/usr/bin/env python3
-"""Capture SPRING_FRAME_BEGIN/END output from a board console into PBM."""
+"""Capture binary SPRING framebuffer packets from a board console into PBM."""
 
 import argparse
-import binascii
-import re
+import struct
 import sys
 
 
-FRAME_RE = re.compile(r"^SPRING_FRAME_BEGIN (\d+) (\d+) ([0-9a-fA-F]{8})$")
-END_RE = re.compile(r"^SPRING_FRAME_END (\d+)$")
+MAGIC = 0x31504653
+HEADER = struct.Struct("<I H I I I")
+FRAME_BYTES = 15000
 
 
 def capture(stream, output):
-    pending = None
-    for raw in stream:
-        line = raw.decode("ascii", errors="ignore").strip()
-        match = FRAME_RE.fullmatch(line)
-        if match:
-            pending = (int(match.group(1)), int(match.group(2)), match.group(3).lower(), "")
-            continue
-        if pending is None:
-            continue
-        end = END_RE.fullmatch(line)
-        if end:
-            frame_id, length, checksum, encoded = pending
-            if int(end.group(1)) != frame_id:
-                pending = None
-                continue
-            payload = binascii.unhexlify(encoded)
-            if len(payload) != length or len(payload) != 15000:
-                raise ValueError(f"frame {frame_id}: payload length is {len(payload)}, expected {length}")
+    data = stream.read()
+    marker = struct.pack("<I", MAGIC)
+    offset = data.find(marker)
+    while offset >= 0:
+        if len(data) - offset < HEADER.size:
+            break
+        magic, version, frame_id, length, checksum = HEADER.unpack_from(data, offset)
+        end = offset + HEADER.size + length + 4
+        if magic == MAGIC and version == 1 and length == FRAME_BYTES and len(data) >= end:
+            payload = data[offset + HEADER.size : offset + HEADER.size + length]
+            trailer = struct.unpack_from("<I", data, offset + HEADER.size + length)[0]
             actual = 2166136261
             for byte in payload:
                 actual = ((actual ^ byte) * 16777619) & 0xFFFFFFFF
-            if f"{actual:08x}" != checksum:
-                raise ValueError(f"frame {frame_id}: checksum mismatch")
-            with open(output, "wb") as image:
-                image.write(b"P4\n400 300\n")
-                image.write(payload)
-            return frame_id
-        if re.fullmatch(r"[0-9a-fA-F]+", line):
-            pending = (*pending[:3], pending[3] + line)
-    raise ValueError("no complete SPRING frame found")
+            if trailer == MAGIC and actual == checksum:
+                with open(output, "wb") as image:
+                    image.write(b"P4\n400 300\n")
+                    image.write(payload)
+                return frame_id
+        offset = data.find(marker, offset + 1)
+    raise ValueError("no complete valid SPRING frame found")
 
 
 def main():
