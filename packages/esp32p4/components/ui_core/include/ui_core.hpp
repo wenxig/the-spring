@@ -22,9 +22,12 @@ class Frame {
 class Router {
  public:
   [[nodiscard]] Route route() const { return route_; }
+  [[nodiscard]] std::uint8_t setting_index() const { return setting_index_; }
   bool dispatch(Event event);
   void render(Frame& frame, const Snapshot& snapshot) const;
   [[nodiscard]] static const char* title(Route route);
- private: Route route_{Route::clock};
+ private:
+  Route route_{Route::clock};
+  std::uint8_t setting_index_{};
 };
 }
