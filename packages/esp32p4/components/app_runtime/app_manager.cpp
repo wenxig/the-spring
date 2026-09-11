@@ -1,9 +1,11 @@
 #include "esp_log.h"
 #include "app_runtime.hpp"
+#include "ui_core.hpp"
 
 namespace {
 constexpr char kTag[] = "app_manager";
 spring::app::Application* current = nullptr;
+spring::ui::Router router;
 }
 
 void spring::app::start() {
@@ -18,6 +20,7 @@ bool spring::app::register_application(Application& application) {
 
 bool spring::app::navigate_home() {
   if (current == nullptr) return false;
+  router.dispatch(spring::ui::Event::home);
   current->on_event(0);
   return true;
 }

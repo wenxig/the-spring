@@ -1,0 +1,6 @@
+if(COMMAND idf_component_register)
+  idf_component_register(SRCS "ui_core.cpp" INCLUDE_DIRS "include")
+else()
+  add_library(ui_core STATIC ui_core.cpp)
+  target_include_directories(ui_core PUBLIC include)
+endif()

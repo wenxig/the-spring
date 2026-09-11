@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 3.28)
+project(epaper_simulator LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 26)
+add_subdirectory(../esp32p4/components/ui_core ui_core)
+add_executable(epaper_simulator main.cpp)
+target_link_libraries(epaper_simulator PRIVATE ui_core)
+enable_testing()
+add_test(NAME render_clock COMMAND epaper_simulator ${CMAKE_CURRENT_BINARY_DIR}/clock.pbm)
