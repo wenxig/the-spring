@@ -13,6 +13,7 @@
 #include "ota_service.hpp"
 #include "wifi_service.hpp"
 #include "power_service.hpp"
+#include "network_service.hpp"
 #include "sdkconfig.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -39,11 +40,19 @@ void interaction_task(void*) {
 
 void clock_refresh_task(void*) {
   auto last_minute = std::uint8_t{0xFF};
+  auto last_modem_revision = std::uint64_t{};
+  auto last_weather_revision = std::uint64_t{};
   while (true) {
-    vTaskDelay(pdMS_TO_TICKS(60'000));
+    vTaskDelay(pdMS_TO_TICKS(1'000));
     const auto minute = static_cast<std::uint8_t>((spring::clock::now().unix_seconds / 60) % 60);
-    if (spring::power::state() == spring::power::State::active && minute != last_minute) {
+    const auto modem_revision = spring::modem::snapshot().revision;
+    const auto weather_revision = spring::network::weather().revision;
+    if (spring::power::state() == spring::power::State::active &&
+        (minute != last_minute || modem_revision != last_modem_revision ||
+         weather_revision != last_weather_revision)) {
       last_minute = minute;
+      last_modem_revision = modem_revision;
+      last_weather_revision = weather_revision;
       spring::app::render();
     }
   }
@@ -76,27 +85,4 @@ extern "C" void app_main() {
   spring::clock_app::register_app();
   spring::app::render();
   spring::ota::mark_boot_valid();
-  
-  // Test EC600X modem communication
-  vTaskDelay(pdMS_TO_TICKS(2000));  // Wait for EC600X to boot
-  ESP_LOGI(kTag, "Testing EC600X modem...");
-  
-  auto result = spring::modem::execute("AT", 3000);
-  ESP_LOGI(kTag, "AT command result: %d", static_cast<int>(result));
-  
-  if (result == spring::modem::Result::ok) {
-    ESP_LOGI(kTag, "EC600X responding, querying module info...");
-    result = spring::modem::execute("ATI", 3000);
-    ESP_LOGI(kTag, "ATI result: %d", static_cast<int>(result));
-    
-    result = spring::modem::execute("AT+CPIN?", 3000);
-    ESP_LOGI(kTag, "AT+CPIN? result: %d", static_cast<int>(result));
-    
-    result = spring::modem::execute("AT+CSQ", 3000);
-    ESP_LOGI(kTag, "AT+CSQ result: %d", static_cast<int>(result));
-  } else {
-    ESP_LOGE(kTag, "EC600X not responding - check connections and power");
-  }
-  
-  vTaskDelay(pdMS_TO_TICKS(1000));
 }

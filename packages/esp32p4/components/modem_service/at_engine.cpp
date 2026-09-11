@@ -3,215 +3,160 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
-#include "usb/usb_host.h"
-#include "usb/cdc_acm_host.h"
+#include "driver/uart.h"
 #include <string>
-#include <cstring>
+#include <algorithm>
 
 namespace {
 constexpr char kTag[] = "modem";
-constexpr std::uint16_t kVendorId = 0x2C7C;   // Quectel
-constexpr std::uint16_t kProductId = 0x6002;  // EC600X
-constexpr std::uint8_t kAtInterface = 3;      // AT 命令端口是 Interface 3
+constexpr uart_port_t kUart = UART_NUM_1;
+constexpr std::size_t kUartBufferSize = 4096;
 
 spring::modem::Snapshot state{};
 SemaphoreHandle_t command_lock = nullptr;
-SemaphoreHandle_t rx_sem = nullptr;
-cdc_acm_dev_hdl_t cdc_dev = nullptr;
+bool uart_ready = false;
 
-// 接收缓冲区
-constexpr std::size_t kRxBufferSize = 2048;
-char rx_buffer[kRxBufferSize];
-std::size_t rx_write_pos = 0;
-std::size_t rx_read_pos = 0;
-
-// USB Host 库事件任务
-void usb_host_task(void *arg) {
-  while (true) {
-    std::uint32_t event_flags;
-    usb_host_lib_handle_events(portMAX_DELAY, &event_flags);
-  }
+bool read_byte(std::uint8_t& byte, std::uint32_t timeout_ms) {
+  return uart_read_bytes(kUart, &byte, 1, pdMS_TO_TICKS(timeout_ms)) == 1;
 }
 
-// CDC-ACM 数据接收回调
-bool cdc_rx_callback(const std::uint8_t *data, std::size_t data_len, void *user_ctx) {
-  if (data_len == 0) return true;
-  
-  // 将数据写入环形缓冲区
-  for (std::size_t i = 0; i < data_len; ++i) {
-    rx_buffer[rx_write_pos] = static_cast<char>(data[i]);
-    rx_write_pos = (rx_write_pos + 1) % kRxBufferSize;
-    
-    // 如果缓冲区满，覆盖最旧的数据
-    if (rx_write_pos == rx_read_pos) {
-      rx_read_pos = (rx_read_pos + 1) % kRxBufferSize;
-    }
+spring::modem::Result transact(std::string_view command, std::string_view payload,
+                               std::uint32_t timeout_ms, std::string* response) {
+  if (command.empty() || !uart_ready) return spring::modem::Result::transport_error;
+  if (command_lock == nullptr || xSemaphoreTake(command_lock, pdMS_TO_TICKS(timeout_ms)) != pdTRUE)
+    return spring::modem::Result::timeout;
+  if (response != nullptr) response->clear();
+  uart_flush_input(kUart);
+  std::string wire{command};
+  wire.append("\r\n");
+  ESP_LOGI(kTag, "TX: %.*s", static_cast<int>(command.size()), command.data());
+  if (uart_write_bytes(kUart, wire.data(), wire.size()) < 0 ||
+      uart_wait_tx_done(kUart, pdMS_TO_TICKS(1000)) != ESP_OK) {
+    xSemaphoreGive(command_lock);
+    return spring::modem::Result::transport_error;
   }
-  
-  // 通知有数据可读
-  xSemaphoreGive(rx_sem);
-  return true;
-}
-
-// 从环形缓冲区读取一个字节
-bool read_byte(std::uint8_t &byte, std::uint32_t timeout_ms) {
   const auto deadline = xTaskGetTickCount() + pdMS_TO_TICKS(timeout_ms);
-  
+  std::string line;
+  std::uint8_t byte{};
+  bool payload_sent = payload.empty();
+  bool final_ok_seen = false;
+  bool async_result_seen = false;
+  const auto asynchronous = command.starts_with("AT+QHTTPGET") || command.starts_with("AT+QNTP");
   while (xTaskGetTickCount() < deadline) {
-    if (rx_read_pos != rx_write_pos) {
-      byte = static_cast<std::uint8_t>(rx_buffer[rx_read_pos]);
-      rx_read_pos = (rx_read_pos + 1) % kRxBufferSize;
-      return true;
+    if (!read_byte(byte, 50)) continue;
+    if (byte == '\n') {
+      ESP_LOGI(kTag, "RX line: %s", line.c_str());
+      if (line == "CONNECT" && !payload_sent) {
+        if (uart_write_bytes(kUart, payload.data(), payload.size()) < 0 ||
+            uart_wait_tx_done(kUart, pdMS_TO_TICKS(1000)) != ESP_OK) {
+          xSemaphoreGive(command_lock);
+          return spring::modem::Result::transport_error;
+        }
+        payload_sent = true;
+      }
+      if (response != nullptr && line != "OK") {
+        response->append(line);
+        response->push_back('\n');
+      }
+      if (line.starts_with("+QHTTPGET:") || line.starts_with("+QNTP:")) async_result_seen = true;
+      if (spring::modem::is_urc(line)) spring::modem::consume_urc(line);
+      if (asynchronous && final_ok_seen && async_result_seen) {
+        xSemaphoreGive(command_lock);
+        return spring::modem::Result::ok;
+      }
+      if (spring::modem::is_final_ok(line)) {
+        final_ok_seen = true;
+        if (!asynchronous || async_result_seen) {
+          xSemaphoreGive(command_lock);
+          return spring::modem::Result::ok;
+        }
+      }
+      if (spring::modem::is_final_error(line)) {
+        xSemaphoreGive(command_lock);
+        return spring::modem::Result::rejected;
+      }
+      line.clear();
+    } else if (byte != '\r') {
+      line.push_back(static_cast<char>(byte));
     }
-    
-    // 等待新数据到达
-    xSemaphoreTake(rx_sem, pdMS_TO_TICKS(50));
   }
-  
-  return false;
+  xSemaphoreGive(command_lock);
+  return spring::modem::Result::timeout;
 }
 
 }  // namespace
 
 void spring::modem::start() {
   command_lock = xSemaphoreCreateMutex();
-  rx_sem = xSemaphoreCreateBinary();
-  
-  // 1. 安装 USB Host 库
-  usb_host_config_t host_config{};
-  host_config.skip_phy_setup = false;
-  host_config.intr_flags = ESP_INTR_FLAG_LEVEL1;
-  ESP_ERROR_CHECK(usb_host_install(&host_config));
-  ESP_LOGI(kTag, "USB Host library installed");
-  
-  // 创建 USB Host 任务
-  xTaskCreate(usb_host_task, "usb_host", 4096, nullptr, 10, nullptr);
-  
-  // 2. 安装 CDC-ACM 驱动
-  cdc_acm_host_driver_config_t driver_config{};
-  driver_config.driver_task_stack_size = 4096;
-  driver_config.driver_task_priority = 10;
-  driver_config.xCoreID = 0;
-  driver_config.new_dev_cb = nullptr;
-  ESP_ERROR_CHECK(cdc_acm_host_install(&driver_config));
-  ESP_LOGI(kTag, "CDC-ACM driver installed");
-  
-  // 等待设备枚举
-  vTaskDelay(pdMS_TO_TICKS(2000));
-  
-  // 3. 打开 EC600X AT 命令端口 (Interface 3)
-  ESP_LOGI(kTag, "Opening EC600X AT port (VID=0x%04X, PID=0x%04X, Interface=%d)...",
-           kVendorId, kProductId, kAtInterface);
-  
-  cdc_acm_host_device_config_t dev_config{};
-  dev_config.connection_timeout_ms = 5000;
-  dev_config.out_buffer_size = 512;
-  dev_config.in_buffer_size = 2048;
-  dev_config.event_cb = nullptr;
-  dev_config.data_cb = cdc_rx_callback;
-  dev_config.user_arg = nullptr;
-  
-  esp_err_t err = cdc_acm_host_open(kVendorId, kProductId, kAtInterface, 
-                                     &dev_config, &cdc_dev);
-  if (err != ESP_OK) {
-    ESP_LOGE(kTag, "Failed to open EC600X: %s", esp_err_to_name(err));
-    ESP_LOGE(kTag, "Please ensure EC600X is connected via USB and powered on");
+  if (command_lock == nullptr) return;
+  uart_config_t config{};
+  config.baud_rate = 115200;
+  config.data_bits = UART_DATA_8_BITS;
+  config.parity = UART_PARITY_DISABLE;
+  config.stop_bits = UART_STOP_BITS_1;
+  config.flow_ctrl = UART_HW_FLOWCTRL_DISABLE;
+  config.source_clk = UART_SCLK_DEFAULT;
+  if (uart_param_config(kUart, &config) != ESP_OK ||
+      uart_set_pin(kUart, 0, 1, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE) != ESP_OK ||
+      uart_driver_install(kUart, kUartBufferSize, 0, 0, nullptr, 0) != ESP_OK) {
+    ESP_LOGE(kTag, "EC600X UART1 initialization failed");
     return;
   }
-  
-  ESP_LOGI(kTag, "EC600X AT port opened successfully");
-  
-  // 4. 配置串口参数 (115200 8N1)
-  cdc_acm_line_coding_t line_coding{};
-  line_coding.dwDTERate = 115200;
-  line_coding.bCharFormat = 0;
-  line_coding.bParityType = 0;
-  line_coding.bDataBits = 8;
-  cdc_acm_host_line_coding_set(cdc_dev, &line_coding);
-  cdc_acm_host_set_control_line_state(cdc_dev, true, true);
-  
-  ESP_LOGI(kTag, "AT engine ready (USB CDC-ACM Interface 3, 115200 8N1)");
-  
-  // 清空可能存在的初始数据
-  vTaskDelay(pdMS_TO_TICKS(100));
-  rx_read_pos = rx_write_pos;
+  uart_ready = true;
+  ESP_LOGI(kTag, "AT engine ready (UART1 TX=GPIO0 RX=GPIO1, 115200 8N1)");
 }
 
 spring::modem::Result spring::modem::execute(std::string_view command, std::uint32_t timeout_ms) {
-  if (command.empty()) return Result::rejected;
-  if (cdc_dev == nullptr) return Result::transport_error;
-  
-  if (command_lock == nullptr || xSemaphoreTake(command_lock, pdMS_TO_TICKS(timeout_ms)) != pdTRUE) {
-    return Result::timeout;
-  }
-  
-  // 构建完整命令（加 \r\n）
-  std::string wire{command};
-  wire.append("\r\n");
-  
-  ESP_LOGI(kTag, "TX: %.*s", static_cast<int>(command.size()), command.data());
-  
-  // 发送命令
-  esp_err_t err = cdc_acm_host_data_tx_blocking(cdc_dev, 
-                                                 reinterpret_cast<const std::uint8_t*>(wire.data()),
-                                                 wire.size(), 1000);
-  if (err != ESP_OK) {
-    ESP_LOGE(kTag, "USB write failed: %s", esp_err_to_name(err));
-    xSemaphoreGive(command_lock);
-    return Result::transport_error;
-  }
-  
-  // 读取响应
-  std::string line;
-  const auto deadline = xTaskGetTickCount() + pdMS_TO_TICKS(timeout_ms);
-  std::uint8_t byte = 0;
-  int bytes_received = 0;
-  
-  while (xTaskGetTickCount() < deadline) {
-    if (!read_byte(byte, 50)) continue;
-    
-    bytes_received++;
-    
-    if (byte == '\n') {
-      // 收到完整行
-      ESP_LOGI(kTag, "RX line: %s", line.c_str());
-      
-      if (is_urc(line)) {
-        consume_urc(line);
-      }
-      
-      if (is_final_ok(line)) {
-        xSemaphoreGive(command_lock);
-        return Result::ok;
-      }
-      
-      if (is_final_error(line)) {
-        xSemaphoreGive(command_lock);
-        return Result::rejected;
-      }
-      
-      line.clear();
-    } else if (byte != '\r') {
-      line.push_back(static_cast<char>(byte));
-    }
-  }
-  
-  ESP_LOGW(kTag, "Timeout after receiving %d bytes", bytes_received);
-  xSemaphoreGive(command_lock);
-  return Result::timeout;
+  return transact(command, {}, timeout_ms, nullptr);
+}
+
+spring::modem::Result spring::modem::execute_capture(std::string_view command,
+                                                      std::uint32_t timeout_ms, std::string& response) {
+  return transact(command, {}, timeout_ms, &response);
+}
+
+spring::modem::Result spring::modem::execute_with_payload(std::string_view command,
+                                                           std::string_view payload,
+                                                           std::uint32_t timeout_ms, std::string& response) {
+  return transact(command, payload, timeout_ms, &response);
+}
+
+spring::modem::HttpResponse spring::modem::http_get(std::string_view url) {
+  if (url.empty()) return {.status = -1};
+  std::string response;
+  const auto url_command = "AT+QHTTPURL=" + std::to_string(url.size()) + ",10";
+  if (execute_with_payload(url_command, url, 15000, response) != Result::ok) return {.status = -1};
+  response.clear();
+  if (execute_capture("AT+QHTTPGET=60", 70000, response) != Result::ok) return {.status = -1};
+  const auto status_start = response.find("+QHTTPGET:");
+  int status{};
+  if (status_start == std::string::npos ||
+      std::sscanf(response.c_str() + status_start, "+QHTTPGET: %d", &status) != 1) return {.status = -1};
+  if (status != 200) return {.status = status};
+  response.clear();
+  if (execute_capture("AT+QHTTPREAD=60", 70000, response) != Result::ok) return {.status = -1};
+  const auto begin = response.find('{');
+  const auto end = response.rfind('}');
+  if (begin == std::string::npos || end < begin) return {.status = -1};
+  return {.status = 200, .body = response.substr(begin, end - begin + 1)};
+}
+
+void spring::modem::set_location(double latitude, double longitude) {
+  state.latitude = latitude;
+  state.longitude = longitude;
+  state.location_valid = true;
+  ++state.revision;
 }
 
 spring::modem::Snapshot spring::modem::snapshot() { return state; }
 
 void spring::modem::consume_urc(std::string_view line) {
-  if (line.starts_with("+CEREG: 1") || line.starts_with("+CEREG: 5")) {
-    state.registered = true;
-  } else if (line.starts_with("+CEREG:")) {
-    state.registered = false;
-  } else if (line.starts_with("+CGATT: 1")) {
-    state.data_attached = true;
+  if (line.starts_with("+CEREG:")) {
+    const auto comma = line.find(',');
+    const auto status = comma == std::string_view::npos ? line.substr(7) : line.substr(comma + 1);
+    state.registered = status.starts_with("1") || status.starts_with("5");
   } else if (line.starts_with("+CGATT:")) {
-    state.data_attached = false;
+    state.data_attached = line.find('1') != std::string_view::npos;
   } else if (line.starts_with("VOICE CALL: BEGIN")) {
     state.call_active = true;
   } else if (line.starts_with("VOICE CALL: END")) {
@@ -223,7 +168,8 @@ void spring::modem::consume_urc(std::string_view line) {
 bool spring::modem::is_urc(std::string_view line) {
   return line.starts_with("+CEREG:") || line.starts_with("+CSQ:") ||
          line.starts_with("+CLIP:") || line.starts_with("VOICE CALL:") ||
-         line.starts_with("+CMTI:");
+         line.starts_with("+CMTI:") || line.starts_with("+QHTTPGET:") ||
+         line.starts_with("+QNTP:");
 }
 
 bool spring::modem::is_final_ok(std::string_view line) { return line == "OK"; }

@@ -15,9 +15,15 @@ struct Snapshot {
   double latitude{};
   double longitude{};
 };
+struct HttpResponse { int status{}; std::string body{}; };
 
 void start();
 Result execute(std::string_view command, std::uint32_t timeout_ms);
+Result execute_capture(std::string_view command, std::uint32_t timeout_ms, std::string& response);
+Result execute_with_payload(std::string_view command, std::string_view payload,
+                            std::uint32_t timeout_ms, std::string& response);
+HttpResponse http_get(std::string_view url);
+void set_location(double latitude, double longitude);
 Snapshot snapshot();
 void consume_urc(std::string_view line);
 bool is_urc(std::string_view line);

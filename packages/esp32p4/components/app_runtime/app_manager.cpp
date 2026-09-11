@@ -4,10 +4,12 @@
 #include "display_service.hpp"
 #include "clock_service.hpp"
 #include "at_engine.hpp"
+#include "network_service.hpp"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include <cstdio>
 #include <cstdint>
+#include <cstring>
 #include <ctime>
 
 namespace {
@@ -58,6 +60,22 @@ void spring::app::render() {
   snapshot.registered = modem.registered;
   snapshot.locating = !modem.location_valid;
   snapshot.in_call = modem.call_active;
+  const auto local_weather = spring::network::weather();
+  if (local != nullptr) {
+    snapshot.year = static_cast<std::uint16_t>(local->tm_year + 1900);
+    snapshot.month = static_cast<std::uint8_t>(local->tm_mon + 1);
+    snapshot.day = static_cast<std::uint8_t>(local->tm_mday);
+    snapshot.weekday = static_cast<std::uint8_t>(local->tm_wday);
+  }
+  snapshot.weather_valid = local_weather.valid;
+  snapshot.forecast_count = local_weather.count;
+  for (std::size_t index{}; index < snapshot.forecast.size(); ++index) {
+    snapshot.forecast[index].hour = local_weather.forecast[index].hour;
+    snapshot.forecast[index].temperature_c = local_weather.forecast[index].temperature_c;
+    std::strncpy(snapshot.forecast[index].description.data(), local_weather.forecast[index].description.data(),
+                 snapshot.forecast[index].description.size() - 1);
+    snapshot.forecast[index].description.back() = '\0';
+  }
   router.render(render_frame, snapshot);
   spring::display::present(render_frame);
   ESP_LOGI(kTag, "ui route=%s dirty=%ux%u+%u+%u frame=%08lx", spring::ui::Router::title(router.route()), spring::display::pending_area().x, spring::display::pending_area().y, spring::display::pending_area().width, spring::display::pending_area().height, static_cast<unsigned long>(spring::display::frame_checksum()));

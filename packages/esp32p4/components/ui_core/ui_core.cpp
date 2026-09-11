@@ -1,6 +1,8 @@
 #include "ui_core.hpp"
 #include <algorithm>
 #include <array>
+#include <cstdio>
+#include <cstring>
 #include "cjk_font.inc"
 
 namespace spring::ui {
@@ -67,44 +69,138 @@ void Frame::text(std::uint16_t x, std::uint16_t y, const char* value) {
 namespace {
 struct Utf8Codepoint { std::uint32_t value{}; std::size_t width{}; };
 
-[[nodiscard]] Utf8Codepoint decode_utf8(const unsigned char* input) {
+[[nodiscard]] bool is_continuation(unsigned char value) { return (value & 0xC0U) == 0x80U; }
+
+[[nodiscard]] Utf8Codepoint decode_utf8(const unsigned char* input, std::size_t remaining) {
   if (input[0] < 0x80U) return {input[0], 1};
-  if ((input[0] & 0xE0U) == 0xC0U && (input[1] & 0xC0U) == 0x80U)
+  if (remaining >= 2 && input[0] >= 0xC2U && input[0] <= 0xDFU && is_continuation(input[1]))
     return {static_cast<std::uint32_t>(((input[0] & 0x1FU) << 6U) | (input[1] & 0x3FU)), 2};
-  if ((input[0] & 0xF0U) == 0xE0U && (input[1] & 0xC0U) == 0x80U && (input[2] & 0xC0U) == 0x80U)
-    return {static_cast<std::uint32_t>(((input[0] & 0x0FU) << 12U) | ((input[1] & 0x3FU) << 6U) | (input[2] & 0x3FU)), 3};
-  if ((input[0] & 0xF8U) == 0xF0U && (input[1] & 0xC0U) == 0x80U && (input[2] & 0xC0U) == 0x80U && (input[3] & 0xC0U) == 0x80U)
-    return {static_cast<std::uint32_t>(((input[0] & 7U) << 18U) | ((input[1] & 0x3FU) << 12U) | ((input[2] & 0x3FU) << 6U) | (input[3] & 0x3FU)), 4};
+  if (remaining >= 3 && input[0] >= 0xE0U && input[0] <= 0xEFU && is_continuation(input[1]) &&
+      is_continuation(input[2]) && !(input[0] == 0xE0U && input[1] < 0xA0U) &&
+      !(input[0] == 0xEDU && input[1] >= 0xA0U))
+    return {static_cast<std::uint32_t>(((input[0] & 0x0FU) << 12U) | ((input[1] & 0x3FU) << 6U) |
+                                       (input[2] & 0x3FU)),
+            3};
+  if (remaining >= 4 && input[0] >= 0xF0U && input[0] <= 0xF4U && is_continuation(input[1]) &&
+      is_continuation(input[2]) && is_continuation(input[3]) && !(input[0] == 0xF0U && input[1] < 0x90U) &&
+      !(input[0] == 0xF4U && input[1] >= 0x90U))
+    return {static_cast<std::uint32_t>(((input[0] & 7U) << 18U) | ((input[1] & 0x3FU) << 12U) |
+                                       ((input[2] & 0x3FU) << 6U) | (input[3] & 0x3FU)),
+            4};
   return {0xFFFD, 1};
 }
 }
 
 void Frame::text_utf8(std::uint16_t x, std::uint16_t y, const char* value) {
+  if (value == nullptr || y > kHeight - 16) return;
   auto cursor = x;
-  for (auto input = reinterpret_cast<const unsigned char*>(value); *input != 0;) {
-    const auto codepoint = decode_utf8(input);
+  const auto* input = reinterpret_cast<const unsigned char*>(value);
+  const auto length = std::strlen(value);
+  for (std::size_t offset{}; offset < length;) {
+    const auto codepoint = decode_utf8(input + offset, length - offset);
     if (codepoint.value < 0x80U) {
       char ascii[] = {static_cast<char>(codepoint.value), '\0'};
-      text(cursor, y, ascii);
+      if (cursor < kWidth) text(cursor, y, ascii);
       cursor = static_cast<std::uint16_t>(cursor + 6);
     } else {
       const auto* begin = std::begin(detail::cjk_codepoints);
       const auto* end = std::end(detail::cjk_codepoints);
       const auto* found = std::find(begin, end, codepoint.value);
-      if (found == end) {
-        box({cursor, y, 16, 16});
-      } else {
-        const auto glyph = static_cast<std::size_t>(found - begin);
-        for (std::uint16_t dy{}; dy < 16; ++dy)
-          for (std::uint16_t dx{}; dx < 16; ++dx)
-            if ((detail::cjk_glyphs[glyph * 32 + dy * 2 + dx / 8] & (0x80U >> (dx % 8))) != 0) pixel(cursor + dx, y + dy);
+      if (cursor <= kWidth - 16) {
+        if (found == end) {
+          box({cursor, y, 16, 16});
+        } else {
+          const auto glyph = static_cast<std::size_t>(found - begin);
+          for (std::uint16_t dy{}; dy < 16; ++dy)
+            for (std::uint16_t dx{}; dx < 16; ++dx)
+              if ((detail::cjk_glyphs[glyph * 32 + (15 - dy) * 2 + dx / 8] & (0x80U >> (dx % 8))) != 0)
+                pixel(cursor + dx, y + dy);
+        }
       }
       cursor = static_cast<std::uint16_t>(cursor + 18);
     }
-    input += codepoint.width;
+    offset += codepoint.width;
+  }
+}
+
+void Frame::text_scaled(std::uint16_t x, std::uint16_t y, const char* value, std::uint8_t scale) {
+  if (scale == 0) return;
+  constexpr std::array<std::array<const char*, 7>, 10> digits{{
+      {{"11111", "10001", "10011", "10101", "11001", "10001", "11111"}},
+      {{"00100", "01100", "00100", "00100", "00100", "00100", "01110"}},
+      {{"11110", "00001", "00001", "01110", "10000", "10000", "11111"}},
+      {{"11110", "00001", "00001", "01110", "00001", "00001", "11110"}},
+      {{"10010", "10010", "10010", "11111", "00010", "00010", "00010"}},
+      {{"11111", "10000", "10000", "11110", "00001", "00001", "11110"}},
+      {{"01110", "10000", "10000", "11110", "10001", "10001", "01110"}},
+      {{"11111", "00001", "00010", "00100", "01000", "01000", "01000"}},
+      {{"01110", "10001", "10001", "01110", "10001", "10001", "01110"}},
+      {{"01110", "10001", "10001", "01111", "00001", "00001", "01110"}},
+  }};
+  auto cursor = x;
+  for (std::size_t i{}; value[i] != '\0'; ++i) {
+    if (value[i] >= '0' && value[i] <= '9') {
+      const auto& glyph = digits[value[i] - '0'];
+      for (std::uint8_t dy{}; dy < 7; ++dy)
+        for (std::uint8_t dx{}; dx < 5; ++dx)
+          if (glyph[dy][dx] == '1')
+            for (std::uint8_t py{}; py < scale; ++py)
+              for (std::uint8_t px{}; px < scale; ++px) pixel(cursor + dx * scale + px, y + dy * scale + py);
+      cursor = static_cast<std::uint16_t>(cursor + 6 * scale);
+    } else if (value[i] == ':') {
+      for (std::uint8_t py{}; py < scale; ++py)
+        for (std::uint8_t px{}; px < scale; ++px) {
+          pixel(cursor + 2 * scale + px, y + 2 * scale + py);
+          pixel(cursor + 2 * scale + px, y + 5 * scale + py);
+        }
+      cursor = static_cast<std::uint16_t>(cursor + 4 * scale);
+    }
   }
 }
 bool Router::dispatch(Event e) { if (e == Event::home) { route_ = Route::clock; return true; } if (e == Event::sleep) { route_ = route_ == Route::sleep ? Route::clock : Route::sleep; return true; } if (e == Event::cancel) { route_ = Route::clock; return true; } if (route_ == Route::sleep) return false; if (route_ == Route::settings && (e == Event::up || e == Event::down || e == Event::confirm)) { if (e == Event::up) setting_index_ = static_cast<std::uint8_t>((setting_index_ + 2) % 3); if (e == Event::down) setting_index_ = static_cast<std::uint8_t>((setting_index_ + 1) % 3); return true; } if (e == Event::right) { route_ = static_cast<Route>((static_cast<int>(route_) + 1) % 5); return true; } if (e == Event::left) { route_ = static_cast<Route>((static_cast<int>(route_) + 4) % 5); return true; } return false; }
 const char* Router::title(Route r) { constexpr const char* titles[] = {"CLOCK", "NETWORK", "LOCATION", "CALL", "SETTINGS", "SLEEP"}; return titles[static_cast<int>(r)]; }
-void Router::render(Frame& f, const Snapshot& s) const { f.clear(); f.box({0, 0, kWidth, kHeight}); f.text(20, 20, title(route_)); if (route_ == Route::clock) { char time[6] = {static_cast<char>('0' + s.hour / 10), static_cast<char>('0' + s.hour % 10), ':', static_cast<char>('0' + s.minute / 10), static_cast<char>('0' + s.minute % 10), '\0'}; f.text(120, 125, time); f.text(120, 170, s.registered ? "ONLINE" : "OFFLINE"); } else if (route_ == Route::network) f.text(100, 130, s.registered ? "REGISTERED" : "SEARCHING"); else if (route_ == Route::location) f.text(100, 130, s.locating ? "LOCATING" : "READY"); else if (route_ == Route::call) f.text(130, 130, s.in_call ? "IN CALL" : "IDLE"); else if (route_ == Route::settings) { f.text(100, 120, "BRIGHTNESS"); f.text(100, 155, "AUTO SLEEP"); f.text(100, 190, "VERSION"); f.box({80, static_cast<std::uint16_t>(105 + setting_index_ * 35), 160, 25}); } else if (route_ == Route::sleep) f.text(150, 145, "SLEEP"); }
+void Router::render(Frame& f, const Snapshot& s) const {
+  f.clear();
+  f.box({0, 0, kWidth, kHeight});
+  if (route_ == Route::clock) {
+    char time[6] = {static_cast<char>('0' + s.hour / 10), static_cast<char>('0' + s.hour % 10), ':',
+                    static_cast<char>('0' + s.minute / 10), static_cast<char>('0' + s.minute % 10), '\0'};
+    f.text_scaled(74, 45, time, 8);
+    constexpr const char* weekdays[] = {"星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"};
+    f.text_utf8(320, 25, weekdays[s.weekday % 7]);
+    f.box({0, 214, kWidth, 1});
+    f.box({132, 214, 1, 86});
+    f.text_utf8(16, 220, "日期");
+    f.text_utf8(16, 254, "--月--日");
+    if (s.month > 0 && s.day > 0) {
+      char date[20]{};
+      std::snprintf(date, sizeof(date), "%u月%u日", s.month, s.day);
+      f.text_utf8(16, 254, date);
+    }
+    f.text_utf8(148, 220, "未来天气");
+    if (s.weather_valid && s.forecast_count > 0) {
+      const auto count = std::min<std::size_t>(s.forecast_count, s.forecast.size());
+      for (std::size_t i{}; i < count; ++i) {
+        char forecast[64]{};
+        const auto& point = s.forecast[i];
+        const auto prefix_length = std::snprintf(forecast, sizeof(forecast), "%02u时 %dC ", point.hour,
+                                                 point.temperature_c);
+        if (prefix_length > 0 && static_cast<std::size_t>(prefix_length) < sizeof(forecast))
+          std::strncat(forecast, point.description.data(), sizeof(forecast) - static_cast<std::size_t>(prefix_length) - 1);
+        f.text_utf8(148, static_cast<std::uint16_t>(240 + i * 18), forecast);
+      }
+    } else {
+      f.text_utf8(148, 250, "暂无天气");
+    }
+    return;
+  }
+  f.text_utf8(20, 20, title(route_));
+  if (route_ == Route::network) f.text(100, 130, s.registered ? "REGISTERED" : "SEARCHING");
+  else if (route_ == Route::location) f.text(100, 130, s.locating ? "LOCATING" : "READY");
+  else if (route_ == Route::call) f.text(130, 130, s.in_call ? "IN CALL" : "IDLE");
+  else if (route_ == Route::settings) {
+    f.text(100, 120, "BRIGHTNESS"); f.text(100, 155, "AUTO SLEEP"); f.text(100, 190, "VERSION");
+    f.box({80, static_cast<std::uint16_t>(105 + setting_index_ * 35), 160, 25});
+  } else if (route_ == Route::sleep) f.text(150, 145, "SLEEP");
+}
 }
