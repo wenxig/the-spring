@@ -10,6 +10,7 @@ struct Rect { std::uint16_t x, y, width, height; };
 constexpr std::size_t kFrameBytes = 15000;
 void start(Backend backend = Backend::buffer_only);
 Backend backend();
+std::uint32_t frame_checksum();
 void present(const spring::ui::Frame& frame);
 void invalidate(Rect area);
 void force_full_refresh();

@@ -37,4 +37,5 @@ void spring::app::render() {
   spring::ui::Frame frame;
   router.render(frame, {});
   spring::display::present(frame);
+  ESP_LOGI(kTag, "ui route=%s dirty=%ux%u+%u+%u frame=%08lx", spring::ui::Router::title(router.route()), spring::display::pending_area().x, spring::display::pending_area().y, spring::display::pending_area().width, spring::display::pending_area().height, static_cast<unsigned long>(spring::display::frame_checksum()));
 }

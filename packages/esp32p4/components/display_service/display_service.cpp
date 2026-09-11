@@ -27,6 +27,12 @@ void spring::display::start(Backend selected) {
 
 spring::display::Backend spring::display::backend() { return active_backend; }
 
+std::uint32_t spring::display::frame_checksum() {
+  std::uint32_t hash{2166136261U};
+  for (const auto byte : frame) { hash ^= byte; hash *= 16777619U; }
+  return hash;
+}
+
 void spring::display::invalidate(Rect area) {
   (void)area;
   if (dirty.width == 0 || dirty.height == 0) {
