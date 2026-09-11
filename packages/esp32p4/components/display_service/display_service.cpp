@@ -93,9 +93,11 @@ bool write_frame(std::uint8_t ram_command, spring::display::Rect area, const std
   if (!command(ram_command)) return false;
   const auto first_byte = static_cast<std::size_t>(area.y) * 50U + area.x / 8U;
   const auto row_bytes = static_cast<std::size_t>(area.width / 8U);
+  std::array<std::uint8_t, 50> row_data{};
   for (std::uint16_t row{}; row < area.height; ++row) {
     const auto offset = first_byte + static_cast<std::size_t>(row) * 50U;
-    if (!transfer(false, {source + offset, row_bytes})) return false;
+    for (std::size_t byte{}; byte < row_bytes; ++byte) row_data[byte] = static_cast<std::uint8_t>(~source[offset + byte]);
+    if (!transfer(false, {row_data.data(), row_bytes})) return false;
   }
   return true;
 }
