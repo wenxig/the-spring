@@ -21,4 +21,21 @@ idf.py set-target esp32p4
 idf.py build
 ```
 
+## 无屏幕验收
+
+P6 暂未接屏时保持 `CONFIG_SPRING_DISPLAY_BUFFER_ONLY=y`，连接开发板 USB 后烧录
+固件。主机端执行：
+
+```sh
+python3 packages/epaper-simulator/verify.py
+python3 packages/epaper-simulator/capture_frame.py /tmp/spring.pbm --port /dev/cu.usbmodemXXXX --baud 115200
+```
+
+第二条命令收到第一帧后退出。生成的 PBM 可用 ImageMagick、预览工具或其他
+Netpbm 工具查看；帧包校验失败时工具会返回错误。
+
+接入屏幕后，将配置切换为 `CONFIG_SPRING_DISPLAY_BUFFER_ONLY=n` 并重新构建。首次
+上电先使用 `pattern_test` 生成的全白、全黑、棋盘格和四角图案，记录 BUSY 极性、
+画面方向和刷新波形，再启用业务页面。
+
 组件版本和待讨论技术决策见 `docs/decisions.md`。
