@@ -31,6 +31,7 @@ constexpr std::uint8_t kCommandTemperature = 0x18;
 constexpr std::uint8_t kCommandDisplayUpdate = 0x22;
 constexpr std::uint8_t kCommandDisplayRefresh = 0x20;
 constexpr std::uint8_t kCommandBlackRam = 0x24;
+constexpr std::uint8_t kCommandPreviousRam = 0x26;
 constexpr std::uint8_t kCommandDeepSleep = 0x10;
 
 bool baseline_valid = false;
@@ -81,13 +82,14 @@ bool set_window(spring::display::Rect area) {
          command(kCommandRamXCounter, x_counter) && command(kCommandRamYCounter, y_counter);
 }
 
-bool write_frame(spring::display::Rect area) {
+bool write_frame(std::uint8_t ram_command, spring::display::Rect area, const std::uint8_t* source) {
   if (!set_window(area)) return false;
+  if (!command(ram_command)) return false;
   const auto first_byte = static_cast<std::size_t>(area.y) * 50U + area.x / 8U;
   const auto row_bytes = static_cast<std::size_t>(area.width / 8U);
   for (std::uint16_t row{}; row < area.height; ++row) {
     const auto offset = first_byte + static_cast<std::size_t>(row) * 50U;
-    if (!transfer(false, {frame + offset, row_bytes})) return false;
+    if (!transfer(false, {source + offset, row_bytes})) return false;
   }
   return true;
 }
@@ -103,7 +105,8 @@ bool refresh(spring::display::Rect area, bool full) {
         !command(kCommandDriverOutput, driver_output) || !command(kCommandDataEntry, entry_mode) ||
         !command(kCommandBorder, border) || !command(kCommandTemperature, temperature)) return false;
   }
-  if (!write_frame(area)) return false;
+  if (!full && !write_frame(kCommandPreviousRam, area, committed_frame.bytes().data())) return false;
+  if (!write_frame(kCommandBlackRam, area, frame)) return false;
   const std::array<std::uint8_t, 1> update_mode{static_cast<std::uint8_t>(full ? 0xF7 : 0xFF)};
   return command(kCommandDisplayUpdate, update_mode) && command(kCommandDisplayRefresh) && wait_until_ready();
 }
