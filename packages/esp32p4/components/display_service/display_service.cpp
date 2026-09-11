@@ -1,10 +1,12 @@
 #include "display_service.hpp"
+#include "ui_core.hpp"
 #include "driver/gpio.h"
 #include <algorithm>
 
 namespace {
 bool baseline_valid = false;
 std::uint8_t frame[spring::display::kFrameBytes]{};
+spring::ui::Frame committed_frame;
 spring::display::Rect dirty{0, 0, 0, 0};
 }
 
@@ -33,7 +35,16 @@ void spring::display::invalidate(Rect area) {
   if (!baseline_valid) force_full_refresh();
 }
 
-void spring::display::force_full_refresh() { baseline_valid = true; }
+void spring::display::force_full_refresh() { baseline_valid = false; dirty = {0, 0, 400, 300}; }
+
+void spring::display::present(const spring::ui::Frame& next) {
+  const auto& bytes = next.bytes();
+  std::copy(bytes.begin(), bytes.end(), frame);
+  if (!baseline_valid) { dirty = {0, 0, 400, 300}; committed_frame = next; baseline_valid = true; return; }
+  const auto changed = next.difference(committed_frame);
+  if (changed.width != 0) dirty = changed;
+  committed_frame = next;
+}
 
 spring::display::Rect spring::display::pending_area() { return dirty; }
 
