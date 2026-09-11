@@ -2,8 +2,11 @@
 #include "app_runtime.hpp"
 #include "ui_core.hpp"
 #include "display_service.hpp"
+#include "clock_service.hpp"
+#include "at_engine.hpp"
 #include <cstdio>
 #include <cstdint>
+#include <ctime>
 
 namespace {
 constexpr char kTag[] = "app_manager";
@@ -37,7 +40,20 @@ bool spring::app::dispatch(spring::ui::Event event) {
 
 void spring::app::render() {
   spring::ui::Frame frame;
-  router.render(frame, {});
+  const auto clock = spring::clock::now();
+  const auto modem = spring::modem::snapshot();
+  const auto timestamp = static_cast<std::time_t>(clock.unix_seconds);
+  const auto local = std::localtime(&timestamp);
+  spring::ui::Snapshot snapshot{};
+  if (local != nullptr) {
+    snapshot.hour = static_cast<std::uint8_t>(local->tm_hour);
+    snapshot.minute = static_cast<std::uint8_t>(local->tm_min);
+  }
+  snapshot.signal = modem.registered ? 4 : 0;
+  snapshot.registered = modem.registered;
+  snapshot.locating = !modem.location_valid;
+  snapshot.in_call = modem.call_active;
+  router.render(frame, snapshot);
   spring::display::present(frame);
   ESP_LOGI(kTag, "ui route=%s dirty=%ux%u+%u+%u frame=%08lx", spring::ui::Router::title(router.route()), spring::display::pending_area().x, spring::display::pending_area().y, spring::display::pending_area().width, spring::display::pending_area().height, static_cast<unsigned long>(spring::display::frame_checksum()));
 #if CONFIG_SPRING_DISPLAY_BUFFER_ONLY
