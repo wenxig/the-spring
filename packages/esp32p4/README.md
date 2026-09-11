@@ -34,6 +34,14 @@ python3 packages/epaper-simulator/capture_frame.py /tmp/spring.pbm --port /dev/c
 第二条命令收到第一帧后退出。生成的 PBM 可用 ImageMagick、预览工具或其他
 Netpbm 工具查看；帧包校验失败时工具会返回错误。
 
+串口启动日志会明确打印 `buffer-only` 或 `epaper`。接屏前使用：
+
+```sh
+idf.py -C packages/esp32p4 menuconfig
+```
+
+在 `the-spring display` 中确认 SPI 频率、BUSY 极性和局刷阈值，再构建烧录。
+
 接入屏幕后，将配置切换为 `CONFIG_SPRING_DISPLAY_BUFFER_ONLY=n` 并重新构建。首次
 上电先使用 `pattern_test` 生成的全白、全黑、棋盘格和四角图案，记录 BUSY 极性、
 画面方向和刷新波形，再启用业务页面。

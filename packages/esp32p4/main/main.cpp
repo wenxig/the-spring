@@ -55,8 +55,10 @@ extern "C" void app_main() {
   spring::input::start();
   spring::app::start();
 #if CONFIG_SPRING_DISPLAY_BUFFER_ONLY
+  ESP_LOGI(kTag, "display mode: buffer-only (P6 may be disconnected)");
   spring::display::start(spring::display::Backend::buffer_only);
 #else
+  ESP_LOGI(kTag, "display mode: epaper (P6 must be connected)");
   spring::display::start(spring::display::Backend::epaper);
 #endif
   spring::modem::start();
