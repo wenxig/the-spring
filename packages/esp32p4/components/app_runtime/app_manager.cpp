@@ -15,6 +15,7 @@ constexpr char kTag[] = "app_manager";
 spring::app::Application* current = nullptr;
 spring::ui::Router router;
 SemaphoreHandle_t render_lock = nullptr;
+EXT_RAM_BSS_ATTR spring::ui::Frame render_frame;
 }
 
 void spring::app::start() {
@@ -44,7 +45,6 @@ bool spring::app::dispatch(spring::ui::Event event) {
 
 void spring::app::render() {
   if (render_lock == nullptr || xSemaphoreTake(render_lock, portMAX_DELAY) != pdTRUE) return;
-  spring::ui::Frame frame;
   const auto clock = spring::clock::now();
   const auto modem = spring::modem::snapshot();
   const auto timestamp = static_cast<std::time_t>(clock.unix_seconds);
@@ -58,8 +58,8 @@ void spring::app::render() {
   snapshot.registered = modem.registered;
   snapshot.locating = !modem.location_valid;
   snapshot.in_call = modem.call_active;
-  router.render(frame, snapshot);
-  spring::display::present(frame);
+  router.render(render_frame, snapshot);
+  spring::display::present(render_frame);
   ESP_LOGI(kTag, "ui route=%s dirty=%ux%u+%u+%u frame=%08lx", spring::ui::Router::title(router.route()), spring::display::pending_area().x, spring::display::pending_area().y, spring::display::pending_area().width, spring::display::pending_area().height, static_cast<unsigned long>(spring::display::frame_checksum()));
 #if CONFIG_SPRING_DISPLAY_BUFFER_ONLY
   static std::uint32_t frame_id = 0;
