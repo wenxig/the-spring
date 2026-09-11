@@ -4,6 +4,8 @@
 #include "display_service.hpp"
 #include "clock_service.hpp"
 #include "at_engine.hpp"
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 #include <cstdio>
 #include <cstdint>
 #include <ctime>
@@ -12,9 +14,11 @@ namespace {
 constexpr char kTag[] = "app_manager";
 spring::app::Application* current = nullptr;
 spring::ui::Router router;
+SemaphoreHandle_t render_lock = nullptr;
 }
 
 void spring::app::start() {
+  render_lock = xSemaphoreCreateMutex();
   ESP_LOGI(kTag, "application runtime ready");
 }
 
@@ -39,6 +43,7 @@ bool spring::app::dispatch(spring::ui::Event event) {
 }
 
 void spring::app::render() {
+  if (render_lock == nullptr || xSemaphoreTake(render_lock, portMAX_DELAY) != pdTRUE) return;
   spring::ui::Frame frame;
   const auto clock = spring::clock::now();
   const auto modem = spring::modem::snapshot();
@@ -73,4 +78,5 @@ void spring::app::render() {
   std::fwrite(&magic, sizeof(magic), 1, stdout);
   std::fflush(stdout);
 #endif
+  xSemaphoreGive(render_lock);
 }

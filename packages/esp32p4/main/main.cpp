@@ -32,6 +32,13 @@ void interaction_task(void*) {
     }
   }
 }
+
+void clock_refresh_task(void*) {
+  while (true) {
+    vTaskDelay(pdMS_TO_TICKS(60'000));
+    spring::app::render();
+  }
+}
 }
 
 namespace {
@@ -54,6 +61,7 @@ extern "C" void app_main() {
   spring::wifi::start();
   spring::power::start();
   xTaskCreate(interaction_task, "interaction", 3072, nullptr, 5, nullptr);
+  xTaskCreate(clock_refresh_task, "clock_refresh", 3072, nullptr, 4, nullptr);
   spring::clock_app::register_app();
   spring::app::render();
   spring::ota::mark_boot_valid();
