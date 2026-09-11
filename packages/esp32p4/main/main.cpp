@@ -21,6 +21,7 @@ void interaction_task(void*) {
     spring::input::Key key{};
     if (!spring::input::next(key, 1000)) continue;
     if (key == spring::input::Key::home) spring::app::navigate_home();
+    else spring::app::dispatch(static_cast<spring::ui::Event>(key));
     if (key == spring::input::Key::sleep) {
       if (spring::power::state() == spring::power::State::sleeping) {
         spring::power::wake();
@@ -49,6 +50,7 @@ extern "C" void app_main() {
   spring::power::start();
   xTaskCreate(interaction_task, "interaction", 3072, nullptr, 5, nullptr);
   spring::clock_app::register_app();
+  spring::app::render();
   spring::ota::mark_boot_valid();
   
   // Test EC600X modem communication

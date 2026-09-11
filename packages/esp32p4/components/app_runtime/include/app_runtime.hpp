@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+namespace spring::ui { enum class Event : std::uint8_t; }
 
 namespace spring::app {
 enum class Lifecycle : std::uint8_t { installed, started, paused, stopped };
@@ -15,4 +16,6 @@ class Application {
 void start();
 bool register_application(Application& application);
 bool navigate_home();
+bool dispatch(spring::ui::Event event);
+void render();
 }  // namespace spring::app

@@ -1,6 +1,7 @@
 #include "esp_log.h"
 #include "app_runtime.hpp"
 #include "ui_core.hpp"
+#include "display_service.hpp"
 
 namespace {
 constexpr char kTag[] = "app_manager";
@@ -22,5 +23,18 @@ bool spring::app::navigate_home() {
   if (current == nullptr) return false;
   router.dispatch(spring::ui::Event::home);
   current->on_event(0);
+  render();
   return true;
+}
+
+bool spring::app::dispatch(spring::ui::Event event) {
+  const auto accepted = router.dispatch(event);
+  if (accepted) render();
+  return accepted;
+}
+
+void spring::app::render() {
+  spring::ui::Frame frame;
+  router.render(frame, {});
+  spring::display::present(frame);
 }
