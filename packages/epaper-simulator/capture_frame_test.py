@@ -26,6 +26,13 @@ class CaptureFrameTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 capture(io.BytesIO(b"noise"), Path(directory) / "frame.pbm")
 
+    def test_rejects_checksum_corruption(self):
+        payload = bytes(15000)
+        packet = HEADER.pack(MAGIC, 1, 9, len(payload), 0) + payload + struct.pack("<I", MAGIC)
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaises(ValueError):
+                capture(io.BytesIO(packet), Path(directory) / "frame.pbm")
+
 
 if __name__ == "__main__":
     unittest.main()
