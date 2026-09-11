@@ -1,0 +1,10 @@
+menu "the-spring UI"
+
+config SPRING_DISPLAY_BUFFER_ONLY
+    bool "Run display in buffer-only mode"
+    default y
+    help
+        Keep the framebuffer and UI routing active without touching the
+        electronic-paper GPIO or SPI bus. Disable when the panel is connected.
+
+endmenu

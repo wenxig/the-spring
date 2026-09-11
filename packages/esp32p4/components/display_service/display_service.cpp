@@ -55,7 +55,7 @@ void spring::display::present(const spring::ui::Frame& next) {
   std::copy(bytes.begin(), bytes.end(), frame);
   if (!baseline_valid) { dirty = {0, 0, 400, 300}; committed_frame = next; baseline_valid = true; return; }
   const auto changed = next.difference(committed_frame);
-  if (changed.width != 0) dirty = changed;
+  if (changed.width != 0) dirty = {changed.x, changed.y, changed.width, changed.height};
   committed_frame = next;
 }
 
