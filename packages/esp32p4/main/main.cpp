@@ -36,7 +36,7 @@ void interaction_task(void*) {
 void clock_refresh_task(void*) {
   while (true) {
     vTaskDelay(pdMS_TO_TICKS(60'000));
-    spring::app::render();
+    if (spring::power::state() == spring::power::State::active) spring::app::render();
   }
 }
 }
