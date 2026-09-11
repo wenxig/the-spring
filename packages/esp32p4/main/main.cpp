@@ -38,9 +38,14 @@ void interaction_task(void*) {
 }
 
 void clock_refresh_task(void*) {
+  auto last_minute = std::uint8_t{0xFF};
   while (true) {
     vTaskDelay(pdMS_TO_TICKS(60'000));
-    if (spring::power::state() == spring::power::State::active) spring::app::render();
+    const auto minute = static_cast<std::uint8_t>((spring::clock::now().unix_seconds / 60) % 60);
+    if (spring::power::state() == spring::power::State::active && minute != last_minute) {
+      last_minute = minute;
+      spring::app::render();
+    }
   }
 }
 }

@@ -160,6 +160,13 @@ void spring::display::start(Backend selected) {
   epaper_ready = wait_until_ready();
   baseline_valid = false;
   partial_refreshes = 0;
+  if (epaper_ready) {
+    frame.fill(0xFF);
+    const spring::ui::Frame blank{};
+    std::copy(blank.bytes().begin(), blank.bytes().end(), frame);
+    dirty = {0, 0, 400, 300};
+    if (!refresh(dirty, true)) ESP_LOGE(kTag, "startup clear refresh failed");
+  }
 }
 
 spring::display::Backend spring::display::backend() { return active_backend; }
@@ -220,7 +227,7 @@ void spring::display::present(const spring::ui::Frame& next) {
   const auto area = baseline_valid ? next.difference(committed_frame) : spring::ui::Rect{0, 0, 400, 300};
   if (area.width == 0 || area.height == 0) return;
   dirty = {area.x, area.y, area.width, area.height};
-  const auto full = !baseline_valid || partial_refreshes >= CONFIG_SPRING_DISPLAY_PARTIAL_REFRESH_LIMIT;
+  const auto full = true;
   if (active_backend == Backend::epaper) {
     if (!refresh(dirty, full)) {
       ESP_LOGE(kTag, "refresh failed for %ux%u+%u+%u; display baseline invalid", dirty.x, dirty.y, dirty.width, dirty.height);
