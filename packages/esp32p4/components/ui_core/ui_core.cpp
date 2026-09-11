@@ -21,7 +21,7 @@ void Frame::text(std::uint16_t x, std::uint16_t y, const char* value) {
   }};
   for (std::size_t i = 0; value[i] != '\0'; ++i) {
     const auto ox = static_cast<std::uint16_t>(x + i * 6);
-    if (value[i] >= '0' && value[i] <= '9') for (auto dy = 0; dy < 7; ++dy) for (auto dx = 0; dx < 5; ++dx) if (digits[value[i] - '0'][dy][dx] == '1') pixel(ox + dx, y + dy);
+    if (value[i] >= '0' && value[i] <= '9') { for (auto dy = 0; dy < 7; ++dy) for (auto dx = 0; dx < 5; ++dx) if (digits[value[i] - '0'][dy][dx] == '1') pixel(ox + dx, y + dy); }
     else if (value[i] != ' ') {
       for (auto dy = 0; dy < 7; ++dy) for (auto dx = 0; dx < 5; ++dx) if (dx == 0 || dx == 4 || dy == 0 || dy == 6) pixel(ox + dx, y + dy);
     }
