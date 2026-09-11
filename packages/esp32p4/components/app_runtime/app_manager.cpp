@@ -40,6 +40,7 @@ void spring::app::render() {
   router.render(frame, {});
   spring::display::present(frame);
   ESP_LOGI(kTag, "ui route=%s dirty=%ux%u+%u+%u frame=%08lx", spring::ui::Router::title(router.route()), spring::display::pending_area().x, spring::display::pending_area().y, spring::display::pending_area().width, spring::display::pending_area().height, static_cast<unsigned long>(spring::display::frame_checksum()));
+#if CONFIG_SPRING_DISPLAY_BUFFER_ONLY
   static std::uint32_t frame_id = 0;
   const auto bytes = spring::display::frame_bytes();
   constexpr std::uint32_t magic = 0x31504653U;
@@ -55,4 +56,5 @@ void spring::app::render() {
   std::fwrite(bytes.data(), 1, bytes.size(), stdout);
   std::fwrite(&magic, sizeof(magic), 1, stdout);
   std::fflush(stdout);
+#endif
 }
