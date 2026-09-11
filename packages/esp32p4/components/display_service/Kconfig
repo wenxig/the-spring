@@ -1,0 +1,17 @@
+menu "the-spring display"
+
+config SPRING_DISPLAY_SPI_FREQUENCY_HZ
+    int "Electronic-paper SPI frequency (Hz)"
+    range 100000 20000000
+    default 1000000
+
+config SPRING_DISPLAY_BUSY_ACTIVE_HIGH
+    bool "BUSY signal is active high"
+    default y
+
+config SPRING_DISPLAY_PARTIAL_REFRESH_LIMIT
+    int "Partial refreshes before a full refresh"
+    range 1 255
+    default 20
+
+endmenu

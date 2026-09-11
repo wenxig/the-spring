@@ -6,6 +6,7 @@
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "sdkconfig.h"
 #include <algorithm>
 #include <array>
 
@@ -17,9 +18,7 @@ constexpr gpio_num_t kDataCommand = GPIO_NUM_6;
 constexpr gpio_num_t kChipSelect = GPIO_NUM_5;
 constexpr gpio_num_t kClock = GPIO_NUM_2;
 constexpr gpio_num_t kMosi = GPIO_NUM_3;
-constexpr std::uint32_t kSpiFrequency = 1'000'000;
 constexpr std::int64_t kBusyTimeoutUs = 8'000'000;
-constexpr std::uint16_t kPartialRefreshLimit = 20;
 constexpr std::uint8_t kCommandSoftwareReset = 0x12;
 constexpr std::uint8_t kCommandDriverOutput = 0x01;
 constexpr std::uint8_t kCommandDataEntry = 0x11;
@@ -46,7 +45,7 @@ std::uint16_t partial_refreshes = 0;
 
 bool wait_until_ready() {
   const auto deadline = esp_timer_get_time() + kBusyTimeoutUs;
-  while (gpio_get_level(kBusy) != 0) {
+  while ((gpio_get_level(kBusy) != 0) == (CONFIG_SPRING_DISPLAY_BUSY_ACTIVE_HIGH != 0)) {
     if (esp_timer_get_time() >= deadline) {
       ESP_LOGE(kTag, "BUSY timeout");
       return false;
@@ -138,7 +137,7 @@ void spring::display::start(Backend selected) {
     return;
   }
   spi_device_interface_config_t device_config{};
-  device_config.clock_speed_hz = kSpiFrequency;
+  device_config.clock_speed_hz = CONFIG_SPRING_DISPLAY_SPI_FREQUENCY_HZ;
   device_config.mode = 0;
   device_config.spics_io_num = kChipSelect;
   device_config.queue_size = 1;
@@ -214,7 +213,7 @@ void spring::display::present(const spring::ui::Frame& next) {
   const auto area = baseline_valid ? next.difference(committed_frame) : spring::ui::Rect{0, 0, 400, 300};
   if (area.width == 0 || area.height == 0) return;
   dirty = {area.x, area.y, area.width, area.height};
-  const auto full = !baseline_valid || partial_refreshes >= kPartialRefreshLimit;
+  const auto full = !baseline_valid || partial_refreshes >= CONFIG_SPRING_DISPLAY_PARTIAL_REFRESH_LIMIT;
   if (active_backend == Backend::epaper) {
     if (!refresh(dirty, full)) {
       ESP_LOGE(kTag, "refresh failed; display baseline invalid");
