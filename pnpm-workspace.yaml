@@ -5,8 +5,6 @@ catalogMode: strict
 cleanupUnusedCatalogs: true
 
 catalog:
-  '@vitejs/plugin-vue': ^6.0.0
-  '@vue/test-utils': ^2.4.6
   '@commitlint/cli': ^21.2.1
   '@commitlint/config-conventional': ^21.2.0
   '@types/node': 26.1.2
@@ -18,10 +16,6 @@ catalog:
   vite-plus: ^0.2.8
   vitest: 5.0.0-beta.7
   vue-tsc: ^3.3.9
-  vue: ^3.5.0
-  vue-router: ^4.5.0
-  jsdom: ^26.0.0
-  tailwindcss: ^4.1.0
 
 overrides:
   typescript: npm:typescript-native-bridge@6.0.3-bridge.8.tsgo.7.0.2
