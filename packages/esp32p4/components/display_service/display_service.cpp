@@ -84,6 +84,11 @@ bool set_window(spring::display::Rect area) {
 }
 
 bool write_frame(std::uint8_t ram_command, spring::display::Rect area, const std::uint8_t* source) {
+  if (source == nullptr || area.width == 0 || area.height == 0 || area.x % 8 != 0 ||
+      area.width % 8 != 0 || area.x + area.width > 400 || area.y + area.height > 300) {
+    ESP_LOGE(kTag, "invalid frame area %ux%u+%u+%u", area.x, area.y, area.width, area.height);
+    return false;
+  }
   if (!set_window(area)) return false;
   if (!command(ram_command)) return false;
   const auto first_byte = static_cast<std::size_t>(area.y) * 50U + area.x / 8U;
@@ -216,7 +221,7 @@ void spring::display::present(const spring::ui::Frame& next) {
   const auto full = !baseline_valid || partial_refreshes >= CONFIG_SPRING_DISPLAY_PARTIAL_REFRESH_LIMIT;
   if (active_backend == Backend::epaper) {
     if (!refresh(dirty, full)) {
-      ESP_LOGE(kTag, "refresh failed; display baseline invalid");
+      ESP_LOGE(kTag, "refresh failed for %ux%u+%u+%u; display baseline invalid", dirty.x, dirty.y, dirty.width, dirty.height);
       force_full_refresh();
       return;
     }
