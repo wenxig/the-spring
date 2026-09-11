@@ -12,7 +12,6 @@
     "vue-router": "catalog:"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "catalog:",
     "@vitejs/plugin-vue": "catalog:",
     "@vue/test-utils": "catalog:",
     "jsdom": "catalog:",

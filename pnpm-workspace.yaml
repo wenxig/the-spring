@@ -5,7 +5,6 @@ catalogMode: strict
 cleanupUnusedCatalogs: true
 
 catalog:
-  '@tailwindcss/vite': ^4.1.0
   '@vitejs/plugin-vue': ^6.0.0
   '@vue/test-utils': ^2.4.6
   '@commitlint/cli': ^21.2.1
