@@ -35,6 +35,8 @@ python3 capture_frame.py frame.pbm --input serial.log
 python3 capture_frame.py frame.pbm --port /dev/cu.usbmodemXXXX --baud 115200
 ```
 
+实时采集可用 `--timeout 30` 设置截止时间；默认持续等待完整帧。
+
 工具只接受版本、长度、尾标记和 FNV-1a 全部正确的完整帧。
 
 运行主机仿真、校准图案和无屏配置检查：

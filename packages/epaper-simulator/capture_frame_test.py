@@ -21,6 +21,11 @@ class CaptureFrameTest(unittest.TestCase):
         self.assertEqual(result[:11], b"P4\n400 300\n")
         self.assertEqual(len(result), 15011)
 
+    def test_rejects_truncated_stream(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaises(ValueError):
+                capture(io.BytesIO(b"noise"), Path(directory) / "frame.pbm")
+
 
 if __name__ == "__main__":
     unittest.main()

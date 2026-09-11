@@ -6,6 +6,7 @@ import os
 import struct
 import sys
 import termios
+import time
 import tty
 
 
@@ -41,7 +42,7 @@ def capture(stream, output):
     return decode(stream.read(), output)
 
 
-def capture_port(port, output, baud):
+def capture_port(port, output, baud, timeout):
     fd = os.open(port, os.O_RDONLY | os.O_NOCTTY)
     saved = termios.tcgetattr(fd)
     try:
@@ -50,13 +51,22 @@ def capture_port(port, output, baud):
         if baud not in speeds:
             raise ValueError("baud must be one of 9600, 115200, 230400")
         attrs = termios.tcgetattr(fd)
+        attrs[6][termios.VMIN] = 0
+        attrs[6][termios.VTIME] = 1
         attrs[4] = speeds[baud]
         attrs[5] = speeds[baud]
         termios.tcsetattr(fd, termios.TCSANOW, attrs)
         buffer = bytearray()
         marker = struct.pack("<I", MAGIC)
-        while True:
-            buffer.extend(os.read(fd, 4096))
+        started = time.monotonic()
+        while timeout <= 0 or time.monotonic() - started < timeout:
+            chunk = os.read(fd, 4096)
+            if not chunk:
+                time.sleep(0.01)
+                continue
+            buffer.extend(chunk)
+            if len(buffer) > HEADER.size + FRAME_BYTES + 4:
+                del buffer[: -(HEADER.size + FRAME_BYTES + 4)]
             start = buffer.find(marker)
             if start > 0:
                 del buffer[:start]
@@ -71,6 +81,7 @@ def capture_port(port, output, baud):
     finally:
         termios.tcsetattr(fd, termios.TCSANOW, saved)
         os.close(fd)
+    raise ValueError("no complete valid SPRING frame found before timeout")
 
 
 def main():
@@ -79,11 +90,12 @@ def main():
     parser.add_argument("--input", help="capture text file; stdin by default")
     parser.add_argument("--port", help="live USB serial device, for example /dev/cu.usbmodem*")
     parser.add_argument("--baud", type=int, default=115200)
+    parser.add_argument("--timeout", type=float, default=0, help="seconds; 0 waits indefinitely")
     args = parser.parse_args()
     if args.input and args.port:
         parser.error("--input and --port are mutually exclusive")
     if args.port:
-        frame_id = capture_port(args.port, args.output, args.baud)
+        frame_id = capture_port(args.port, args.output, args.baud, args.timeout)
         print(f"captured frame {frame_id} -> {args.output}")
         return
     source = open(args.input, "rb") if args.input else sys.stdin.buffer
