@@ -182,6 +182,25 @@ void spring::display::invalidate(Rect area) {
 
 void spring::display::force_full_refresh() { baseline_valid = false; dirty = {0, 0, 400, 300}; }
 
+void spring::display::sleep() {
+  if (active_backend != Backend::epaper || !epaper_ready) return;
+  const std::array<std::uint8_t, 1> mode{0x01};
+  if (!wait_until_ready() || !command(kCommandDeepSleep, mode)) {
+    epaper_ready = false;
+    baseline_valid = false;
+  }
+}
+
+void spring::display::wake() {
+  if (active_backend != Backend::epaper) return;
+  gpio_set_level(kReset, 0);
+  vTaskDelay(pdMS_TO_TICKS(10));
+  gpio_set_level(kReset, 1);
+  vTaskDelay(pdMS_TO_TICKS(10));
+  epaper_ready = wait_until_ready();
+  force_full_refresh();
+}
+
 void spring::display::present(const spring::ui::Frame& next) {
   const auto& bytes = next.bytes();
   std::copy(bytes.begin(), bytes.end(), frame);

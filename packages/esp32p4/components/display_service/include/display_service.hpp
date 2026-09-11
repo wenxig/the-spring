@@ -16,6 +16,8 @@ std::uint32_t frame_checksum();
 void present(const spring::ui::Frame& frame);
 void invalidate(Rect area);
 void force_full_refresh();
+void sleep();
+void wake();
 bool write_pixel(std::uint16_t x, std::uint16_t y, bool black);
 Rect pending_area();
 Rect take_pending_area();

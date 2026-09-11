@@ -10,10 +10,12 @@ void spring::power::start() { current_state = State::active; }
 
 void spring::power::request_sleep() {
   current_state = State::sleeping;
+  spring::display::sleep();
 }
 
 void spring::power::wake() {
   current_state = State::active;
+  spring::display::wake();
   spring::display::force_full_refresh();
   (void)spring::modem::execute("AT", 3000);
 }
