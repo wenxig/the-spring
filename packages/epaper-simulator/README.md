@@ -8,6 +8,14 @@ cmake --build packages/epaper-simulator/build
 ctest --test-dir packages/epaper-simulator/build --output-on-failure
 packages/epaper-simulator/build/epaper_simulator /tmp/clock.pbm
 ```
+
+生成首次接屏校准图案：
+
+```sh
+packages/epaper-simulator/build/pattern_test /tmp/pattern_
+```
+
+输出 `white.pbm`、`black.pbm`、`checkerboard.pbm` 和 `corners_marked.pbm`。
 # 无屏幕板端帧采集
 
 开发板启用 `CONFIG_SPRING_DISPLAY_BUFFER_ONLY=y` 后，P6 可以保持断开。每次 UI
