@@ -7,6 +7,7 @@
 #include "esp_vfs_fat.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "sd_pwr_ctrl_by_on_chip_ldo.h"
 #include "sqlite3.h"
 #include <sys/stat.h>
 
@@ -14,42 +15,95 @@ namespace {
 constexpr char kTag[] = "storage";
 bool mounted = false;
 sqlite3* database = nullptr;
+sd_pwr_ctrl_handle_t pwr_ctrl_handle = nullptr;
 }
 
 bool spring::storage::mount_sdcard() {
+  // Initialize LDO#4 for SD card power (Waveshare ESP32-P4 specific)
+  ESP_LOGI(kTag, "Initializing SD card power (LDO#4 + GPIO45)");
+  sd_pwr_ctrl_ldo_config_t ldo_config{};
+  ldo_config.ldo_chan_id = 4;  // LDO_VO4
+  
+  esp_err_t ret = sd_pwr_ctrl_new_on_chip_ldo(&ldo_config, &pwr_ctrl_handle);
+  if (ret != ESP_OK) {
+    ESP_LOGE(kTag, "Failed to initialize LDO power control: %s", esp_err_to_name(ret));
+    return false;
+  }
+  
+  // GPIO45 controls transistor Q1 (LOW = enable)
+  gpio_config_t io_conf{};
+  io_conf.pin_bit_mask = (1ULL << GPIO_NUM_45);
+  io_conf.mode = GPIO_MODE_OUTPUT;
+  io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
+  io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
+  gpio_config(&io_conf);
+  gpio_set_level(GPIO_NUM_45, 0);  // LOW = enable SD card power
+  
+  // Wait for power to stabilize
+  vTaskDelay(pdMS_TO_TICKS(200));
+  ESP_LOGI(kTag, "SD card power enabled");
+  
   sdmmc_host_t host = SDMMC_HOST_DEFAULT();
-  host.max_freq_khz = SDMMC_FREQ_PROBING;  // Use lowest frequency (400kHz) for maximum compatibility
+  host.max_freq_khz = SDMMC_FREQ_DEFAULT;  // 20MHz
+  host.pwr_ctrl_handle = pwr_ctrl_handle;  // Pass LDO power control handle
+  
   sdmmc_slot_config_t slot = SDMMC_SLOT_CONFIG_DEFAULT();
-  slot.width = 1;  // Use 1-bit mode for compatibility
+  slot.width = 4;  // Use 4-bit mode for better performance
   slot.clk = GPIO_NUM_43;
   slot.cmd = GPIO_NUM_44;
   slot.d0 = GPIO_NUM_39;
   slot.d1 = GPIO_NUM_40;
   slot.d2 = GPIO_NUM_41;
   slot.d3 = GPIO_NUM_42;
-  slot.flags |= SDMMC_SLOT_FLAG_INTERNAL_PULLUP;  // Enable internal pull-ups
+  slot.flags |= SDMMC_SLOT_FLAG_INTERNAL_PULLUP;
+  
   esp_vfs_fat_sdmmc_mount_config_t config{};
   config.format_if_mount_failed = false;
   config.max_files = 8;
   config.allocation_unit_size = 16 * 1024;
   config.disk_status_check_enable = false;
+  
   sdmmc_card_t* card = nullptr;
   const auto result = esp_vfs_fat_sdmmc_mount("/sdcard", &host, &slot, &config, &card);
+  ESP_LOGI(kTag, "SD card mount result: %s", esp_err_to_name(result));
+  
   mounted = result == ESP_OK;
-  if (mounted) {
-    mkdir("/sdcard/data", 0755);
+  if (!mounted) {
+    ESP_LOGE(kTag, "Failed to mount SD card");
+    return false;
   }
-  if (mounted && sqlite3_open("/sdcard/data/spring.sqlite3", &database) == SQLITE_OK) {
-    sqlite3_busy_timeout(database, 3000);
-    sqlite3_exec(database, "PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;", nullptr, nullptr, nullptr);
-    constexpr char schema[] =
-        "CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY, type TEXT NOT NULL, "
-        "payload TEXT NOT NULL, created_at INTEGER NOT NULL);"
-        "CREATE TABLE IF NOT EXISTS snapshots (revision INTEGER PRIMARY KEY, payload TEXT NOT NULL);";
-    mounted = sqlite3_exec(database, schema, nullptr, nullptr, nullptr) == SQLITE_OK;
+  
+  ESP_LOGI(kTag, "SD card mounted successfully, creating data directory");
+  mkdir("/sdcard/data", 0755);
+  
+  // Test file write/read
+  ESP_LOGI(kTag, "Testing SD card write/read...");
+  FILE* f = fopen("/sdcard/data/test.txt", "w");
+  if (f == nullptr) {
+    ESP_LOGE(kTag, "Failed to open test file for writing");
+    mounted = false;
+    return false;
   }
-  ESP_LOGI(kTag, "SD card mount: %s", esp_err_to_name(result));
-  return mounted;
+  fprintf(f, "Hello from ESP32-P4!\n");
+  fclose(f);
+  
+  f = fopen("/sdcard/data/test.txt", "r");
+  if (f == nullptr) {
+    ESP_LOGE(kTag, "Failed to open test file for reading");
+    mounted = false;
+    return false;
+  }
+  char line[64];
+  fgets(line, sizeof(line), f);
+  fclose(f);
+  ESP_LOGI(kTag, "SD card test successful, read: %s", line);
+  
+  // TODO: SQLite initialization disabled due to crash on ESP32-P4
+  // Will be re-enabled after investigating nopnop2002__sqlite3 compatibility
+  ESP_LOGW(kTag, "SQLite disabled temporarily - SD card file I/O works");
+  
+  ESP_LOGI(kTag, "Storage service initialized successfully (SD card only)");
+  return true;
 }
 
 bool spring::storage::append_event(std::string_view type, std::string_view payload) {
