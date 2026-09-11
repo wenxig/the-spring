@@ -19,6 +19,7 @@ constexpr gpio_num_t kClock = GPIO_NUM_2;
 constexpr gpio_num_t kMosi = GPIO_NUM_3;
 constexpr std::uint32_t kSpiFrequency = 1'000'000;
 constexpr std::int64_t kBusyTimeoutUs = 8'000'000;
+constexpr std::uint16_t kPartialRefreshLimit = 20;
 constexpr std::uint8_t kCommandSoftwareReset = 0x12;
 constexpr std::uint8_t kCommandDriverOutput = 0x01;
 constexpr std::uint8_t kCommandDataEntry = 0x11;
@@ -41,6 +42,7 @@ spring::display::Rect dirty{0, 0, 0, 0};
 spring::display::Backend active_backend{spring::display::Backend::buffer_only};
 spi_device_handle_t spi_device = nullptr;
 bool epaper_ready = false;
+std::uint16_t partial_refreshes = 0;
 
 bool wait_until_ready() {
   const auto deadline = esp_timer_get_time() + kBusyTimeoutUs;
@@ -151,6 +153,7 @@ void spring::display::start(Backend selected) {
   vTaskDelay(pdMS_TO_TICKS(10));
   epaper_ready = wait_until_ready();
   baseline_valid = false;
+  partial_refreshes = 0;
 }
 
 spring::display::Backend spring::display::backend() { return active_backend; }
@@ -209,8 +212,8 @@ void spring::display::present(const spring::ui::Frame& next) {
   const auto area = baseline_valid ? next.difference(committed_frame) : spring::ui::Rect{0, 0, 400, 300};
   if (area.width == 0 || area.height == 0) return;
   dirty = {area.x, area.y, area.width, area.height};
+  const auto full = !baseline_valid || partial_refreshes >= kPartialRefreshLimit;
   if (active_backend == Backend::epaper) {
-    const auto full = !baseline_valid;
     if (!refresh(dirty, full)) {
       ESP_LOGE(kTag, "refresh failed; display baseline invalid");
       force_full_refresh();
@@ -219,6 +222,7 @@ void spring::display::present(const spring::ui::Frame& next) {
   }
   committed_frame = next;
   baseline_valid = true;
+  partial_refreshes = full ? 0 : static_cast<std::uint16_t>(partial_refreshes + 1);
 }
 
 spring::display::Rect spring::display::pending_area() { return dirty; }
