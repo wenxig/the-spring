@@ -105,6 +105,7 @@ bool write_frame(std::uint8_t ram_command, spring::display::Rect area, const std
 bool refresh(spring::display::Rect area, bool full) {
   if (!epaper_ready || !wait_until_ready()) return false;
   if (full) {
+    area = {0, 0, 400, 300};
     const std::array<std::uint8_t, 3> driver_output{0x2B, 0x01, 0x00};
     const std::array<std::uint8_t, 1> entry_mode{0x03};
     const std::array<std::uint8_t, 1> border{0x05};
@@ -161,9 +162,7 @@ void spring::display::start(Backend selected) {
   baseline_valid = false;
   partial_refreshes = 0;
   if (epaper_ready) {
-    frame.fill(0xFF);
-    const spring::ui::Frame blank{};
-    std::copy(blank.bytes().begin(), blank.bytes().end(), frame);
+    std::fill(std::begin(frame), std::end(frame), 0);
     dirty = {0, 0, 400, 300};
     if (!refresh(dirty, true)) ESP_LOGE(kTag, "startup clear refresh failed");
   }
