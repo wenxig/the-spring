@@ -5,9 +5,11 @@
 namespace spring::ui { class Frame; }
 
 namespace spring::display {
+enum class Backend : std::uint8_t { buffer_only, epaper };
 struct Rect { std::uint16_t x, y, width, height; };
 constexpr std::size_t kFrameBytes = 15000;
-void start();
+void start(Backend backend = Backend::buffer_only);
+Backend backend();
 void present(const spring::ui::Frame& frame);
 void invalidate(Rect area);
 void force_full_refresh();

@@ -12,6 +12,8 @@
 
 ## 构建
 
+默认显示后端为 `buffer_only`：开发板可以连接电脑和按键，但 P6 不连接电子纸，固件仍会完成 UI 路由和 framebuffer 渲染，不会等待 BUSY 或访问屏幕总线。接入实体屏幕后，将启动参数切换为 `Backend::epaper`，再启用 SSD1683 传输。
+
 ```sh
 idf.py set-target esp32p4
 idf.py build

@@ -12,6 +12,7 @@
 #include "ota_service.hpp"
 #include "wifi_service.hpp"
 #include "power_service.hpp"
+#include "sdkconfig.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
@@ -42,7 +43,11 @@ extern "C" void app_main() {
   spring::clock::start();
   spring::input::start();
   spring::app::start();
-  spring::display::start();
+#if CONFIG_SPRING_DISPLAY_BUFFER_ONLY
+  spring::display::start(spring::display::Backend::buffer_only);
+#else
+  spring::display::start(spring::display::Backend::epaper);
+#endif
   spring::modem::start();
   spring::storage::mount_sdcard();
   spring::network::start();

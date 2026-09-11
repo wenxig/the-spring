@@ -1,5 +1,6 @@
 #include "display_service.hpp"
 #include "ui_core.hpp"
+#include "esp_log.h"
 #include "driver/gpio.h"
 #include <algorithm>
 
@@ -8,9 +9,13 @@ bool baseline_valid = false;
 std::uint8_t frame[spring::display::kFrameBytes]{};
 spring::ui::Frame committed_frame;
 spring::display::Rect dirty{0, 0, 0, 0};
+spring::display::Backend active_backend{spring::display::Backend::buffer_only};
 }
 
-void spring::display::start() {
+void spring::display::start(Backend selected) {
+  active_backend = selected;
+  ESP_LOGI("display", "backend=%s", selected == Backend::epaper ? "epaper" : "buffer-only");
+  if (selected == Backend::buffer_only) return;
   gpio_set_direction(GPIO_NUM_22, GPIO_MODE_INPUT);
   gpio_set_direction(GPIO_NUM_21, GPIO_MODE_OUTPUT);
   gpio_set_direction(GPIO_NUM_6, GPIO_MODE_OUTPUT);
@@ -19,6 +24,8 @@ void spring::display::start() {
   gpio_set_direction(GPIO_NUM_3, GPIO_MODE_OUTPUT);
   baseline_valid = false;
 }
+
+spring::display::Backend spring::display::backend() { return active_backend; }
 
 void spring::display::invalidate(Rect area) {
   (void)area;
