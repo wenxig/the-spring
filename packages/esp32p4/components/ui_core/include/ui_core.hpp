@@ -13,6 +13,7 @@ class Frame {
  public:
   void clear(); void pixel(std::uint16_t x, std::uint16_t y, bool black = true);
   void box(Rect rect); void text(std::uint16_t x, std::uint16_t y, const char* value);
+  void text_utf8(std::uint16_t x, std::uint16_t y, const char* value);
   [[nodiscard]] const auto& bytes() const { return data_; }
   [[nodiscard]] bool is_black(std::uint16_t x, std::uint16_t y) const;
   [[nodiscard]] Rect difference(const Frame& previous) const;
