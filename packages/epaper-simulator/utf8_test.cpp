@@ -10,6 +10,6 @@ int main() {
 
   spring::ui::Frame malformed;
   malformed.text_utf8(10, 10, "网络\xE4\xB8");
-  assert(malformed.is_black(10, 10));
+  assert(malformed.bytes() != spring::ui::Frame{}.bytes());
   return 0;
 }

@@ -1,6 +1,7 @@
 #include "ui_core.hpp"
 #include <algorithm>
 #include <array>
+#include "cjk_font.inc"
 
 namespace spring::ui {
 void Frame::clear() { data_.fill(0); }
@@ -87,9 +88,17 @@ void Frame::text_utf8(std::uint16_t x, std::uint16_t y, const char* value) {
       text(cursor, y, ascii);
       cursor = static_cast<std::uint16_t>(cursor + 6);
     } else {
-      // 16x16 placeholder cell. The flash font table will replace this cell
-      // when the generated CJK asset is added; unknown glyphs stay visible.
-      box({cursor, y, 16, 16});
+      const auto* begin = std::begin(detail::cjk_codepoints);
+      const auto* end = std::end(detail::cjk_codepoints);
+      const auto* found = std::find(begin, end, codepoint.value);
+      if (found == end) {
+        box({cursor, y, 16, 16});
+      } else {
+        const auto glyph = static_cast<std::size_t>(found - begin);
+        for (std::uint16_t dy{}; dy < 16; ++dy)
+          for (std::uint16_t dx{}; dx < 16; ++dx)
+            if ((detail::cjk_glyphs[glyph * 32 + dy * 2 + dx / 8] & (0x80U >> (dx % 8))) != 0) pixel(cursor + dx, y + dy);
+      }
       cursor = static_cast<std::uint16_t>(cursor + 18);
     }
     input += codepoint.width;
