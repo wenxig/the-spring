@@ -201,6 +201,8 @@ void spring::display::wake() {
   force_full_refresh();
 }
 
+void spring::display::complete_refresh() { dirty = {0, 0, 0, 0}; }
+
 void spring::display::present(const spring::ui::Frame& next) {
   const auto& bytes = next.bytes();
   std::copy(bytes.begin(), bytes.end(), frame);
