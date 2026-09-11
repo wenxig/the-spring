@@ -1,0 +1,3 @@
+#include "ui_core.hpp"
+#include <cassert>
+int main() { spring::ui::Router router; assert(router.route() == spring::ui::Route::clock); assert(router.dispatch(spring::ui::Event::right)); assert(router.route() == spring::ui::Route::network); assert(router.dispatch(spring::ui::Event::left)); assert(router.route() == spring::ui::Route::clock); assert(router.dispatch(spring::ui::Event::sleep)); assert(router.route() == spring::ui::Route::sleep); assert(router.dispatch(spring::ui::Event::home)); assert(router.route() == spring::ui::Route::clock); spring::ui::Frame frame; frame.pixel(400, 300); assert(!frame.is_black(399, 299)); return 0; }

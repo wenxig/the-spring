@@ -14,6 +14,7 @@ class Frame {
   void clear(); void pixel(std::uint16_t x, std::uint16_t y, bool black = true);
   void box(Rect rect); void text(std::uint16_t x, std::uint16_t y, const char* value);
   [[nodiscard]] const auto& bytes() const { return data_; }
+  [[nodiscard]] bool is_black(std::uint16_t x, std::uint16_t y) const;
  private: std::array<std::uint8_t, kBytes> data_{};
 };
 class Router {
@@ -21,6 +22,7 @@ class Router {
   [[nodiscard]] Route route() const { return route_; }
   bool dispatch(Event event);
   void render(Frame& frame, const Snapshot& snapshot) const;
+  [[nodiscard]] static const char* title(Route route);
  private: Route route_{Route::clock};
 };
 }
