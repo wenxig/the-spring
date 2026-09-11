@@ -78,6 +78,6 @@ void spring::app::render() {
   std::fwrite(&magic, sizeof(magic), 1, stdout);
   std::fflush(stdout);
 #endif
-  spring::display::complete_refresh();
+  if (spring::display::healthy()) spring::display::complete_refresh();
   xSemaphoreGive(render_lock);
 }

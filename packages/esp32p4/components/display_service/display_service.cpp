@@ -206,6 +206,8 @@ void spring::display::wake() {
 
 void spring::display::complete_refresh() { dirty = {0, 0, 0, 0}; }
 
+bool spring::display::healthy() { return active_backend == Backend::buffer_only || (epaper_ready && baseline_valid); }
+
 void spring::display::present(const spring::ui::Frame& next) {
   const auto& bytes = next.bytes();
   std::copy(bytes.begin(), bytes.end(), frame);
