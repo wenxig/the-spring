@@ -2,6 +2,7 @@
 #include "freertos/task.h"
 #include "esp_log.h"
 #include "app_runtime.hpp"
+#include "ui_core.hpp"
 #include "clock_service.hpp"
 #include "input_service.hpp"
 #include "at_engine.hpp"
@@ -21,20 +22,18 @@ void interaction_task(void*) {
   while (true) {
     spring::input::Key key{};
     if (!spring::input::next(key, 1000)) continue;
-    if (spring::power::state() == spring::power::State::sleeping && key != spring::input::Key::sleep) {
+    if (spring::power::state() == spring::power::State::sleeping) {
       spring::power::wake();
       spring::app::render();
       continue;
     }
+    if (key == spring::input::Key::sleep) {
+      spring::app::dispatch(spring::ui::Event::sleep);
+      spring::power::request_sleep();
+      continue;
+    }
     if (key == spring::input::Key::home) spring::app::navigate_home();
     else spring::app::dispatch(static_cast<spring::ui::Event>(key));
-    if (key == spring::input::Key::sleep) {
-      if (spring::power::state() == spring::power::State::sleeping) {
-        spring::power::wake();
-      } else {
-        spring::power::request_sleep();
-      }
-    }
   }
 }
 
