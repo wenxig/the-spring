@@ -23,9 +23,10 @@ int main() {
   router.render(offline, disconnected);
   router.render(online, connected);
   assert(offline.bytes() != online.bytes());
-  for (std::uint16_t y = 292; y < 299; ++y)
-    for (std::uint16_t x = 1; x < 399; ++x)
-      if (x != 132) assert(!online.is_black(x, y));
+  for (std::uint16_t y = 214; y < 300; ++y) {
+    assert(online.is_black(133, y));
+    assert(online.is_black(266, y));
+  }
   assert(router.dispatch(spring::ui::Event::right));
   router.render(offline, disconnected);
   router.render(online, connected);

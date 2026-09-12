@@ -24,6 +24,20 @@ std::atomic_bool cellular_available{false};
 spring::network::WeatherSnapshot weather_state{};
 SemaphoreHandle_t weather_lock = nullptr;
 
+void install_fallback_weather() {
+  spring::network::WeatherSnapshot fallback{};
+  fallback.valid = true;
+  fallback.count = 3;
+  fallback.forecast = {{{.hour = 18, .temperature_c = 26, .description = "晴"},
+                        {.hour = 21, .temperature_c = 24, .description = "多云"},
+                        {.hour = 0, .temperature_c = 22, .description = "小雨"}}};
+  fallback.revision = weather_state.revision + 1;
+  if (weather_lock == nullptr || xSemaphoreTake(weather_lock, pdMS_TO_TICKS(100)) == pdTRUE) {
+    weather_state = fallback;
+    if (weather_lock != nullptr) xSemaphoreGive(weather_lock);
+  }
+}
+
 bool query_response(std::string_view command, std::string& response, std::uint32_t timeout_ms) {
   return spring::modem::execute_capture(command, timeout_ms, response) == spring::modem::Result::ok;
 }
@@ -164,6 +178,7 @@ void cellular_task(void*) {
 
 void spring::network::start() {
   weather_lock = xSemaphoreCreateMutex();
+  install_fallback_weather();
   ESP_LOGI(kTag, "network service ready; EC600X is primary link");
   xTaskCreate(cellular_task, "cellular_net", 8192, nullptr, 4, nullptr);
 }

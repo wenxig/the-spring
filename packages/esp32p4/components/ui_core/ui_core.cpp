@@ -157,40 +157,96 @@ void Frame::text_scaled(std::uint16_t x, std::uint16_t y, const char* value, std
     }
   }
 }
+
+namespace {
+void segment_digit(Frame& frame, std::uint16_t x, std::uint16_t y, std::uint8_t digit, std::uint8_t width,
+                   std::uint8_t height, std::uint8_t thickness) {
+  constexpr std::uint8_t masks[] = {0x7E, 0x30, 0x6D, 0x79, 0x33, 0x5B, 0x5F, 0x70, 0x7F, 0x7B};
+  if (digit > 9) return;
+  const auto mask = masks[digit];
+  const auto half = static_cast<std::uint16_t>((height - thickness) / 2);
+  const auto draw = [&](std::uint8_t bit, std::uint16_t px, std::uint16_t py, std::uint16_t w, std::uint16_t h) {
+    if ((mask & (1U << bit)) == 0) return;
+    frame.box({static_cast<std::uint16_t>(x + px), static_cast<std::uint16_t>(y + py), w, h});
+  };
+  draw(6, thickness, 0, width - 2 * thickness, thickness);
+  draw(5, 0, thickness, thickness, half);
+  draw(4, width - thickness, thickness, thickness, half);
+  draw(3, thickness, half + thickness, width - 2 * thickness, thickness);
+  draw(2, 0, half + 2 * thickness, thickness, half);
+  draw(1, width - thickness, half + 2 * thickness, thickness, half);
+  draw(0, thickness, height - thickness, width - 2 * thickness, thickness);
+}
+
+void centered_number(Frame& frame, std::uint16_t left, std::uint16_t top, std::uint16_t width, std::uint8_t value) {
+  const auto tens = static_cast<std::uint8_t>(value / 10);
+  const auto ones = static_cast<std::uint8_t>(value % 10);
+  constexpr std::uint16_t digit_width = 25;
+  constexpr std::uint16_t digit_height = 48;
+  constexpr std::uint16_t gap = 5;
+  const auto start = static_cast<std::uint16_t>(left + (width - 2 * digit_width - gap) / 2);
+  segment_digit(frame, start, top, tens, digit_width, digit_height, 4);
+  segment_digit(frame, static_cast<std::uint16_t>(start + digit_width + gap), top, ones, digit_width, digit_height, 4);
+}
+
+void centered_time(Frame& frame, std::uint8_t hour, std::uint8_t minute) {
+  constexpr std::uint16_t digit_width = 36;
+  constexpr std::uint16_t digit_height = 82;
+  constexpr std::uint16_t gap = 8;
+  constexpr std::uint16_t colon = 16;
+  constexpr std::uint16_t total = 4 * digit_width + 3 * gap + colon;
+  const auto start = static_cast<std::uint16_t>((kWidth - total) / 2);
+  const auto draw_pair = [&](std::uint16_t x, std::uint8_t value) {
+    segment_digit(frame, x, 48, static_cast<std::uint8_t>(value / 10), digit_width, digit_height, 5);
+    segment_digit(frame, static_cast<std::uint16_t>(x + digit_width + gap), 48,
+                  static_cast<std::uint8_t>(value % 10), digit_width, digit_height, 5);
+  };
+  draw_pair(start, hour);
+  const auto colon_x = static_cast<std::uint16_t>(start + 2 * digit_width + gap + (gap / 2));
+  frame.box({colon_x, 76, 5, 5});
+  frame.box({colon_x, 108, 5, 5});
+  draw_pair(static_cast<std::uint16_t>(colon_x + colon + gap / 2), minute);
+}
+
+void weather_icon(Frame& frame, std::uint16_t x, std::uint16_t y, std::uint8_t kind) {
+  if (kind == 0) {
+    frame.box({static_cast<std::uint16_t>(x + 8), y, 16, 16});
+    frame.box({x, static_cast<std::uint16_t>(y + 8), 32, 1});
+  } else if (kind == 1) {
+    frame.box({x, static_cast<std::uint16_t>(y + 7), 30, 12});
+    frame.box({static_cast<std::uint16_t>(x + 8), y, 12, 14});
+  } else {
+    frame.box({x, static_cast<std::uint16_t>(y + 5), 32, 12});
+    frame.box({static_cast<std::uint16_t>(x + 7), static_cast<std::uint16_t>(y + 17), 1, 6});
+    frame.box({static_cast<std::uint16_t>(x + 16), static_cast<std::uint16_t>(y + 17), 1, 6});
+    frame.box({static_cast<std::uint16_t>(x + 25), static_cast<std::uint16_t>(y + 17), 1, 6});
+  }
+}
+}
 bool Router::dispatch(Event e) { if (e == Event::home) { route_ = Route::clock; return true; } if (e == Event::sleep) { route_ = route_ == Route::sleep ? Route::clock : Route::sleep; return true; } if (e == Event::cancel) { route_ = Route::clock; return true; } if (route_ == Route::sleep) return false; if (route_ == Route::settings && (e == Event::up || e == Event::down || e == Event::confirm)) { if (e == Event::up) setting_index_ = static_cast<std::uint8_t>((setting_index_ + 2) % 3); if (e == Event::down) setting_index_ = static_cast<std::uint8_t>((setting_index_ + 1) % 3); return true; } if (e == Event::right) { route_ = static_cast<Route>((static_cast<int>(route_) + 1) % 5); return true; } if (e == Event::left) { route_ = static_cast<Route>((static_cast<int>(route_) + 4) % 5); return true; } return false; }
 const char* Router::title(Route r) { constexpr const char* titles[] = {"CLOCK", "NETWORK", "LOCATION", "CALL", "SETTINGS", "SLEEP"}; return titles[static_cast<int>(r)]; }
 void Router::render(Frame& f, const Snapshot& s) const {
   f.clear();
   f.box({0, 0, kWidth, kHeight});
   if (route_ == Route::clock) {
-    char time[6] = {static_cast<char>('0' + s.hour / 10), static_cast<char>('0' + s.hour % 10), ':',
-                    static_cast<char>('0' + s.minute / 10), static_cast<char>('0' + s.minute % 10), '\0'};
-    f.text_scaled(74, 45, time, 8);
-    constexpr const char* weekdays[] = {"星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"};
-    f.text_utf8(320, 25, weekdays[s.weekday % 7]);
+    centered_time(f, s.hour, s.minute);
     f.box({0, 214, kWidth, 1});
-    f.box({132, 214, 1, 86});
-    f.text_utf8(16, 220, "日期");
-    f.text_utf8(16, 254, "--月--日");
-    if (s.month > 0 && s.day > 0) {
-      char date[20]{};
-      std::snprintf(date, sizeof(date), "%u月%u日", s.month, s.day);
-      f.text_utf8(16, 254, date);
-    }
-    f.text_utf8(148, 220, "未来天气");
-    if (s.weather_valid && s.forecast_count > 0) {
-      const auto count = std::min<std::size_t>(s.forecast_count, s.forecast.size());
-      for (std::size_t i{}; i < count; ++i) {
-        char forecast[64]{};
-        const auto& point = s.forecast[i];
-        const auto prefix_length = std::snprintf(forecast, sizeof(forecast), "%02u时 %dC ", point.hour,
-                                                 point.temperature_c);
-        if (prefix_length > 0 && static_cast<std::size_t>(prefix_length) < sizeof(forecast))
-          std::strncat(forecast, point.description.data(), sizeof(forecast) - static_cast<std::size_t>(prefix_length) - 1);
-        f.text_utf8(148, static_cast<std::uint16_t>(240 + i * 18), forecast);
-      }
+    f.box({133, 214, 1, 86});
+    f.box({266, 214, 1, 86});
+    f.text_utf8(8, 222, "日期");
+    char date[20]{};
+    std::snprintf(date, sizeof(date), "%u月/%u日", s.month, s.day);
+    f.text_utf8(8, 254, date);
+    f.text_utf8(141, 222, "天气");
+    weather_icon(f, 145, 246, 0);
+    centered_number(f, 180, 238, 78, s.forecast_count > 0 ? static_cast<std::uint8_t>(s.forecast[0].temperature_c) : 0);
+    f.text_utf8(276, 222, "未来");
+    if (s.weather_valid && s.forecast_count > 1) {
+      weather_icon(f, 282, 246, 1);
+      centered_number(f, 316, 238, 78, static_cast<std::uint8_t>(s.forecast[1].temperature_c));
     } else {
-      f.text_utf8(148, 250, "暂无天气");
+      weather_icon(f, 282, 246, 2);
+      centered_number(f, 316, 238, 78, 0);
     }
     return;
   }
