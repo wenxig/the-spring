@@ -1,10 +1,16 @@
-menu "the-spring UI"
+menu "Spring UI"
 
 config SPRING_DISPLAY_BUFFER_ONLY
     bool "Run display in buffer-only mode"
-    default y
+    default n
     help
         Keep the framebuffer and UI routing active without touching the
         electronic-paper GPIO or SPI bus. Disable when the panel is connected.
+
+config SPRING_LVGL_DECLARATIVE_UI
+    bool "Use LVGL 9.5 declarative UI host"
+    default y
+    help
+        Render the XML-defined screens through the LVGL 9.5 software renderer.
 
 endmenu
