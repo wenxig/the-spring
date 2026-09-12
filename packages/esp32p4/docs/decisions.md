@@ -5,6 +5,7 @@
 - ESP-IDF：首版以 5.5 为基线，使用 ESP-IDF 原生 FreeRTOS、GPIO、SPI、UART 驱动。
 - OTA：采用 `otadata + ota_0 + ota_1` 双槽和应用回滚；服务器部署方式暂不实现，固件只保留 HTTPS OTA 客户端边界。
 - UI：LVGL 9；UI 任务独占 LVGL，显示 flush 通过电子纸适配层串行化。
+- UI 声明式源文件：采用 LVGL 9.5 XML 约定；LVGL 开源运行库不含 XML 解析器，生产构建使用 LVGL Pro 生成普通 LVGL C 代码，固件不依赖运行时 XML 解析。
 - Modem：`esp_modem` 封装 UART 和 AT 通道，应用层维护注册、拨号、URC 状态机。
 - 电子纸：`esp_epaper` 负责 SSD1683 时序；400x300、单色 15,000 字节帧缓冲。若其 managed component 与目标 IDF/LVGL 适配不稳定，将在项目内封装同一接口并锁定已验证版本。
 - 网络：上层只依赖 `NetworkClient` 的 GET/POST 接口；底层按 Wi-Fi 优先、蜂窝网络回退自动选择链路，链路断开时指数退避并恢复请求队列。

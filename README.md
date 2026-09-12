@@ -7,6 +7,8 @@
 
 使用 `vp run <task>` 执行根目录任务。主机仿真和固件任务共享 `ui_core` 与汉仪文黑字库。
 
+原生仿真使用 GCC C++26 规则，依赖由系统工具链和 ESP-IDF Component Manager 管理；项目不再引入 vcpkg。
+
 ```sh
 vp run font:generate
 vp run simulator:test
