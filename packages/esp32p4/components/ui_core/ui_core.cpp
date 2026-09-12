@@ -191,25 +191,6 @@ void centered_number(Frame& frame, std::uint16_t left, std::uint16_t top, std::u
   segment_digit(frame, static_cast<std::uint16_t>(start + digit_width + gap), top, ones, digit_width, digit_height, 4);
 }
 
-void centered_time(Frame& frame, std::uint8_t hour, std::uint8_t minute) {
-  constexpr std::uint16_t digit_width = 36;
-  constexpr std::uint16_t digit_height = 82;
-  constexpr std::uint16_t gap = 8;
-  constexpr std::uint16_t colon = 16;
-  constexpr std::uint16_t total = 4 * digit_width + 3 * gap + colon;
-  const auto start = static_cast<std::uint16_t>((kWidth - total) / 2);
-  const auto draw_pair = [&](std::uint16_t x, std::uint8_t value) {
-    segment_digit(frame, x, 48, static_cast<std::uint8_t>(value / 10), digit_width, digit_height, 5);
-    segment_digit(frame, static_cast<std::uint16_t>(x + digit_width + gap), 48,
-                  static_cast<std::uint8_t>(value % 10), digit_width, digit_height, 5);
-  };
-  draw_pair(start, hour);
-  const auto colon_x = static_cast<std::uint16_t>(start + 2 * digit_width + gap + (gap / 2));
-  frame.box({colon_x, 76, 5, 5});
-  frame.box({colon_x, 108, 5, 5});
-  draw_pair(static_cast<std::uint16_t>(colon_x + colon + gap / 2), minute);
-}
-
 void weather_icon(Frame& frame, std::uint16_t x, std::uint16_t y, std::uint8_t kind) {
   if (kind == 0) {
     frame.box({static_cast<std::uint16_t>(x + 8), y, 16, 16});
@@ -231,7 +212,9 @@ void Router::render(Frame& f, const Snapshot& s) const {
   f.clear();
   f.box({0, 0, kWidth, kHeight});
   if (route_ == Route::clock) {
-    centered_time(f, s.hour, s.minute);
+    char time[6] = {static_cast<char>('0' + s.hour / 10), static_cast<char>('0' + s.hour % 10), ':',
+                    static_cast<char>('0' + s.minute / 10), static_cast<char>('0' + s.minute % 10), '\0'};
+    f.text_scaled(74, 45, time, 8);
     f.box({0, 214, kWidth, 1});
     f.box({133, 214, 1, 86});
     f.box({266, 214, 1, 86});

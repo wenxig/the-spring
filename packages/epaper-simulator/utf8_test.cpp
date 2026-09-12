@@ -14,7 +14,11 @@ int main() {
 
   spring::ui::Frame labels;
   labels.text_utf8(10, 10, "日期星期温度天气");
-  for (std::uint16_t x = 0; x < spring::ui::kWidth; ++x) assert(!labels.is_black(x, 25));
+  bool has_glyph_pixels = false;
+  for (std::uint16_t y = 10; y < 26; ++y)
+    for (std::uint16_t x = 10; x < 10 + 16 * 6; ++x)
+      has_glyph_pixels = has_glyph_pixels || labels.is_black(x, y);
+  assert(has_glyph_pixels);
 
   spring::ui::Frame outside;
   outside.text_utf8(10, 285, "日期");

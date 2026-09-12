@@ -13,6 +13,6 @@ values = re.search(r"cjk_codepoints\[\] = \{([^}]*)\}", text, re.S).group(1)
 open(sys.argv[2], "w", encoding="utf-8").write(" ".join(re.findall(r"\d+", values)))
 PY
 
-sed 's/CTFontCreateWithName("STHeiti" as CFString, 16, nil)/CTFontCreateWithName("HYWenHei-65W" as CFString, 16, nil)/' \
-  /tmp/generate_cjk.swift > "$script"
-swift "$script" "$input" "$root/packages/esp32p4/components/ui_core/cjk_font.inc"
+cp "$root/scripts/generate_cjk_font.swift" "$script"
+swift "$script" "$input" "$root/assets/HYWenHei-65W-3.ttf" \
+  "$root/packages/esp32p4/components/ui_core/cjk_font.inc"
