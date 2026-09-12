@@ -191,9 +191,9 @@ void Frame::text_scaled(std::uint16_t x, std::uint16_t y, const char* value, std
       for (std::uint8_t row{}; row < 7; ++row)
         for (std::uint8_t py{}; py < scale; ++py)
           for (std::uint8_t px{}; px < scale; ++px)
-            pixel(cursor + static_cast<std::uint16_t>((4 - row) * scale + px),
+            pixel(cursor + static_cast<std::uint16_t>((7 - row / 2) * scale + px),
                   y + static_cast<std::uint16_t>(row * scale + py));
-      cursor = static_cast<std::uint16_t>(cursor + 6 * scale);
+      cursor = static_cast<std::uint16_t>(cursor + 9 * scale);
     } else if (value[i] == '-') {
       for (std::uint8_t py{}; py < scale; ++py)
         for (std::uint8_t px{}; px < 5 * scale; ++px) pixel(cursor + px, y + 3 * scale + py);
@@ -206,7 +206,7 @@ namespace {
 std::uint16_t scaled_text_width(const char* value, std::uint8_t scale) {
   auto width = std::uint16_t{};
   for (std::size_t index{}; value[index] != '\0'; ++index)
-    width = static_cast<std::uint16_t>(width + (value[index] == ':' ? 4 : value[index] == '/' ? 6 : 6) * scale);
+    width = static_cast<std::uint16_t>(width + (value[index] == ':' ? 4 : value[index] == '/' ? 9 : 6) * scale);
   return width;
 }
 
