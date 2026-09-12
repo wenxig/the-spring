@@ -1,0 +1,6 @@
+<globals>
+  <const name="screen_width" value="400" />
+  <const name="screen_height" value="300" />
+  <const name="content_top" value="224" />
+  <const name="accent_column" value="319" />
+</globals>

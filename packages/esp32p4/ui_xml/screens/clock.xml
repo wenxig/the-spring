@@ -1,0 +1,8 @@
+<screen name="clock">
+  <view width="#screen_width" height="#screen_height" layout="none">
+    <lv_label name="time" x="74" y="45" />
+    <lv_obj name="weekday_column" x="#accent_column" y="0" width="1" height="224" />
+    <lv_label name="weekday" x="323" y="16" />
+    <lv_obj name="forecast" x="0" y="#content_top" width="400" height="76" />
+  </view>
+</screen>
