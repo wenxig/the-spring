@@ -59,6 +59,10 @@ export default defineConfig({
         cache: false,
         dependsOn: ['font:generate'],
       },
+      'ui:xml-validate': {
+        command: 'python3 scripts/validate_ui_xml.py',
+        cache: false,
+      },
       'embedded:verify': {
         command:
           "grep -Eq 'CONFIG_SPRING_DISPLAY_BUFFER_ONLY(=n| is not set)' packages/esp32p4/sdkconfig",

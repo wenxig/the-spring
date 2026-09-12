@@ -1,0 +1,8 @@
+<component name="forecast_card">
+  <view width="70" height="76" layout="column" gap="1">
+    <lv_label name="kind" />
+    <lv_image name="icon" />
+    <lv_label name="temperature" />
+    <lv_label name="hour" />
+  </view>
+</component>
