@@ -10,10 +10,11 @@ int main(int argc, char** argv) {
                                       .day = 11,
                                       .weekday = 5,
                                       .weather_valid = !fallback,
-                                      .forecast_count = static_cast<std::uint8_t>(fallback ? 0 : 3),
+                                      .forecast_count = static_cast<std::uint8_t>(fallback ? 0 : 4),
                                       .forecast = {{{.hour = 18, .temperature_c = 26, .description = "晴"},
                                                     {.hour = 21, .temperature_c = 24, .description = "多云"},
-                                                    {.hour = 0, .temperature_c = 22, .description = "小雨"}}}};
+                                                    {.hour = 0, .temperature_c = 22, .description = "小雨"},
+                                                    {.hour = 3, .temperature_c = 21, .description = "晴"}}}};
   spring::ui::Router router;
   spring::ui::Frame frame;
   router.render(frame, snapshot);

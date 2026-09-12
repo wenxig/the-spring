@@ -16,16 +16,19 @@ int main() {
                                  .day = 11,
                                  .weekday = 5,
                                  .weather_valid = true,
-                                 .forecast_count = 3,
+                                 .forecast_count = 4,
                                  .forecast = {{{.hour = 18, .temperature_c = 26, .description = "晴"},
                                                {.hour = 21, .temperature_c = 24, .description = "多云"},
-                                               {.hour = 0, .temperature_c = 22, .description = "小雨"}}}};
+                                               {.hour = 0, .temperature_c = 22, .description = "小雨"},
+                                               {.hour = 3, .temperature_c = 21, .description = "晴"}}}};
   router.render(offline, disconnected);
   router.render(online, connected);
   assert(offline.bytes() != online.bytes());
-  for (std::uint16_t y = 214; y < 300; ++y) {
-    assert(online.is_black(133, y));
-    assert(online.is_black(266, y));
+  for (std::uint16_t y = 224; y < 300; ++y) {
+    assert(online.is_black(100, y));
+    assert(online.is_black(190, y));
+    assert(online.is_black(260, y));
+    assert(online.is_black(330, y));
   }
   assert(router.dispatch(spring::ui::Event::right));
   router.render(offline, disconnected);

@@ -27,10 +27,11 @@ SemaphoreHandle_t weather_lock = nullptr;
 void install_fallback_weather() {
   spring::network::WeatherSnapshot fallback{};
   fallback.valid = true;
-  fallback.count = 3;
+  fallback.count = 4;
   fallback.forecast = {{{.hour = 18, .temperature_c = 26, .description = "晴"},
                         {.hour = 21, .temperature_c = 24, .description = "多云"},
-                        {.hour = 0, .temperature_c = 22, .description = "小雨"}}};
+                        {.hour = 0, .temperature_c = 22, .description = "小雨"},
+                        {.hour = 3, .temperature_c = 21, .description = "晴"}}};
   fallback.revision = weather_state.revision + 1;
   if (weather_lock == nullptr || xSemaphoreTake(weather_lock, pdMS_TO_TICKS(100)) == pdTRUE) {
     weather_state = fallback;

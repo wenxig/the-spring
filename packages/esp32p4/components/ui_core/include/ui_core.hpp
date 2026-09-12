@@ -5,7 +5,7 @@
 namespace spring::ui {
 constexpr std::uint16_t kWidth = 400, kHeight = 300;
 constexpr std::size_t kBytes = kWidth * kHeight / 8;
-constexpr std::size_t kForecastSlots = 3;
+constexpr std::size_t kForecastSlots = 4;
 enum class Route : std::uint8_t { clock, network, location, call, settings, sleep };
 enum class Event : std::uint8_t { up, down, left, right, confirm, cancel, sleep, home };
 struct ForecastPoint {
@@ -29,6 +29,7 @@ class Frame {
   void box(Rect rect); void text(std::uint16_t x, std::uint16_t y, const char* value);
   void text_scaled(std::uint16_t x, std::uint16_t y, const char* value, std::uint8_t scale);
   void text_utf8(std::uint16_t x, std::uint16_t y, const char* value);
+  void text_utf8_sized(std::uint16_t x, std::uint16_t y, const char* value, std::uint8_t size);
   [[nodiscard]] const auto& bytes() const { return data_; }
   [[nodiscard]] bool is_black(std::uint16_t x, std::uint16_t y) const;
   [[nodiscard]] Rect difference(const Frame& previous) const;

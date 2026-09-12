@@ -6,7 +6,7 @@
 #include <cstdint>
 
 namespace spring::network {
-constexpr std::size_t kForecastSlots = 3;
+constexpr std::size_t kForecastSlots = 4;
 enum class Link { wifi, cellular, unavailable };
 struct Response { int status{}; std::string body{}; };
 struct ForecastPoint {

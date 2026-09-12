@@ -124,6 +124,38 @@ void Frame::text_utf8(std::uint16_t x, std::uint16_t y, const char* value) {
   }
 }
 
+void Frame::text_utf8_sized(std::uint16_t x, std::uint16_t y, const char* value, std::uint8_t size) {
+  if (value == nullptr || size == 0 || y > kHeight - size) return;
+  auto cursor = x;
+  const auto* input = reinterpret_cast<const unsigned char*>(value);
+  const auto length = std::strlen(value);
+  for (std::size_t offset{}; offset < length;) {
+    const auto codepoint = decode_utf8(input + offset, length - offset);
+    if (codepoint.value < 0x80U) {
+      char ascii[] = {static_cast<char>(codepoint.value), '\0'};
+      if (size == 16) text(cursor, y, ascii);
+      cursor = static_cast<std::uint16_t>(cursor + (size == 16 ? 6 : size));
+    } else {
+      const auto* begin = std::begin(detail::cjk_codepoints);
+      const auto* end = std::end(detail::cjk_codepoints);
+      const auto* found = std::find(begin, end, codepoint.value);
+      if (cursor <= kWidth - size) {
+        const auto glyph = found == end ? 0U : static_cast<std::size_t>(found - begin);
+        for (std::uint16_t row{}; row < size; ++row)
+          for (std::uint16_t column{}; column < size; ++column) {
+            const auto source_row = static_cast<std::uint16_t>(row * 16 / size);
+            const auto source_column = static_cast<std::uint16_t>(column * 16 / size);
+            const auto bits = found == end ? 0U : detail::cjk_glyphs[glyph * 32 + (15 - source_row) * 2 + source_column / 8];
+            if ((bits & (0x80U >> (source_column % 8))) != 0)
+              pixel(static_cast<std::uint16_t>(cursor + column), static_cast<std::uint16_t>(y + row));
+          }
+      }
+      cursor = static_cast<std::uint16_t>(cursor + size + 2);
+    }
+    offset += codepoint.width;
+  }
+}
+
 void Frame::text_scaled(std::uint16_t x, std::uint16_t y, const char* value, std::uint8_t scale) {
   if (scale == 0) return;
   constexpr std::array<std::array<const char*, 7>, 10> digits{{
@@ -155,49 +187,52 @@ void Frame::text_scaled(std::uint16_t x, std::uint16_t y, const char* value, std
           pixel(cursor + 2 * scale + px, y + 5 * scale + py);
         }
       cursor = static_cast<std::uint16_t>(cursor + 4 * scale);
+    } else if (value[i] == '/') {
+      for (std::uint8_t row{}; row < 7; ++row)
+        for (std::uint8_t py{}; py < scale; ++py)
+          for (std::uint8_t px{}; px < scale; ++px)
+            pixel(cursor + static_cast<std::uint16_t>((4 - row) * scale + px),
+                  y + static_cast<std::uint16_t>(row * scale + py));
+      cursor = static_cast<std::uint16_t>(cursor + 6 * scale);
+    } else if (value[i] == '-') {
+      for (std::uint8_t py{}; py < scale; ++py)
+        for (std::uint8_t px{}; px < 5 * scale; ++px) pixel(cursor + px, y + 3 * scale + py);
+      cursor = static_cast<std::uint16_t>(cursor + 6 * scale);
     }
   }
 }
 
 namespace {
-void segment_digit(Frame& frame, std::uint16_t x, std::uint16_t y, std::uint8_t digit, std::uint8_t width,
-                   std::uint8_t height, std::uint8_t thickness) {
-  constexpr std::uint8_t masks[] = {0x7E, 0x30, 0x6D, 0x79, 0x33, 0x5B, 0x5F, 0x70, 0x7F, 0x7B};
-  if (digit > 9) return;
-  const auto mask = masks[digit];
-  const auto half = static_cast<std::uint16_t>((height - thickness) / 2);
-  const auto draw = [&](std::uint8_t bit, std::uint16_t px, std::uint16_t py, std::uint16_t w, std::uint16_t h) {
-    if ((mask & (1U << bit)) == 0) return;
-    for (auto row = std::uint16_t{}; row < h; ++row)
-      for (auto column = std::uint16_t{}; column < w; ++column)
-        frame.pixel(static_cast<std::uint16_t>(x + px + column), static_cast<std::uint16_t>(y + py + row));
-  };
-  draw(6, thickness, 0, width - 2 * thickness, thickness);
-  draw(5, 0, thickness, thickness, half);
-  draw(4, width - thickness, thickness, thickness, half);
-  draw(3, thickness, half + thickness, width - 2 * thickness, thickness);
-  draw(2, 0, half + 2 * thickness, thickness, half);
-  draw(1, width - thickness, half + 2 * thickness, thickness, half);
-  draw(0, thickness, height - thickness, width - 2 * thickness, thickness);
+std::uint16_t scaled_text_width(const char* value, std::uint8_t scale) {
+  auto width = std::uint16_t{};
+  for (std::size_t index{}; value[index] != '\0'; ++index)
+    width = static_cast<std::uint16_t>(width + (value[index] == ':' ? 4 : value[index] == '/' ? 6 : 6) * scale);
+  return width;
 }
 
-void centered_number(Frame& frame, std::uint16_t left, std::uint16_t top, std::uint16_t width, std::uint8_t value) {
-  const auto tens = static_cast<std::uint8_t>(value / 10);
-  const auto ones = static_cast<std::uint8_t>(value % 10);
-  constexpr std::uint16_t digit_width = 25;
-  constexpr std::uint16_t digit_height = 48;
-  constexpr std::uint16_t gap = 5;
-  const auto start = static_cast<std::uint16_t>(left + (width - 2 * digit_width - gap) / 2);
-  segment_digit(frame, start, top, tens, digit_width, digit_height, 4);
-  segment_digit(frame, static_cast<std::uint16_t>(start + digit_width + gap), top, ones, digit_width, digit_height, 4);
+void centered_scaled(Frame& frame, std::uint16_t left, std::uint16_t right, std::uint16_t y, const char* value,
+                     std::uint8_t scale) {
+  const auto width = scaled_text_width(value, scale);
+  const auto x = static_cast<std::uint16_t>(left + (right - left - width) / 2);
+  frame.text_scaled(x, y, value, scale);
 }
 
-void weather_icon(Frame& frame, std::uint16_t x, std::uint16_t y, std::uint8_t kind) {
+std::uint8_t weather_kind(const ForecastPoint& point) {
+  if (std::strstr(point.description.data(), "雨") != nullptr) return 2;
+  if (std::strstr(point.description.data(), "云") != nullptr) return 1;
+  return 0;
+}
+
+void weather_icon(Frame& frame, std::uint16_t x, std::uint16_t y, std::uint8_t kind, std::uint8_t size) {
   const auto icon = static_cast<std::uint8_t>(std::min<std::uint8_t>(kind, 2));
-  for (std::uint16_t row{}; row < 32; ++row)
-    for (std::uint16_t column{}; column < 32; ++column)
-      if ((detail::material_weather_glyphs[icon][row * 4 + column / 8] & (0x80U >> (column % 8))) != 0)
+  for (std::uint16_t row{}; row < size; ++row)
+    for (std::uint16_t column{}; column < size; ++column) {
+      const auto source_row = static_cast<std::uint16_t>(row * 32 / size);
+      const auto source_column = static_cast<std::uint16_t>(column * 32 / size);
+      if ((detail::material_weather_glyphs[icon][source_row * 4 + source_column / 8] &
+           (0x80U >> (source_column % 8))) != 0)
         frame.pixel(static_cast<std::uint16_t>(x + column), static_cast<std::uint16_t>(y + row));
+    }
 }
 }
 bool Router::dispatch(Event e) { if (e == Event::home) { route_ = Route::clock; return true; } if (e == Event::sleep) { route_ = route_ == Route::sleep ? Route::clock : Route::sleep; return true; } if (e == Event::cancel) { route_ = Route::clock; return true; } if (route_ == Route::sleep) return false; if (route_ == Route::settings && (e == Event::up || e == Event::down || e == Event::confirm)) { if (e == Event::up) setting_index_ = static_cast<std::uint8_t>((setting_index_ + 2) % 3); if (e == Event::down) setting_index_ = static_cast<std::uint8_t>((setting_index_ + 1) % 3); return true; } if (e == Event::right) { route_ = static_cast<Route>((static_cast<int>(route_) + 1) % 5); return true; } if (e == Event::left) { route_ = static_cast<Route>((static_cast<int>(route_) + 4) % 5); return true; } return false; }
@@ -209,23 +244,48 @@ void Router::render(Frame& f, const Snapshot& s) const {
     char time[6] = {static_cast<char>('0' + s.hour / 10), static_cast<char>('0' + s.hour % 10), ':',
                     static_cast<char>('0' + s.minute / 10), static_cast<char>('0' + s.minute % 10), '\0'};
     f.text_scaled(74, 45, time, 8);
-    f.box({0, 214, kWidth, 1});
-    f.box({133, 214, 1, 86});
-    f.box({266, 214, 1, 86});
-    f.text_utf8(48, 222, "日期");
+    constexpr const char* weekdays[] = {"星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"};
+    constexpr std::uint16_t weekday_left = 319;
+    constexpr std::uint16_t weekday_x = 323;
+    constexpr std::uint16_t weekday_y = 16;
+    const auto weekday = static_cast<std::uint8_t>(s.weekday % 7);
+    f.box({weekday_left, 0, 1, 224});
+    f.box({static_cast<std::uint16_t>(weekday_left + 1), static_cast<std::uint16_t>(weekday_y + weekday * 20 - 2), 62, 20});
+    for (std::uint8_t index{}; index < 7; ++index)
+      f.text_utf8(weekday_x, static_cast<std::uint16_t>(weekday_y + index * 20), weekdays[index]);
+    constexpr std::uint16_t bottom_top = 224;
+    f.box({0, bottom_top, kWidth, 1});
+    f.box({100, bottom_top, 1, static_cast<std::uint16_t>(kHeight - bottom_top)});
+    f.box({190, bottom_top, 1, static_cast<std::uint16_t>(kHeight - bottom_top)});
+    f.box({260, bottom_top, 1, static_cast<std::uint16_t>(kHeight - bottom_top)});
+    f.box({330, bottom_top, 1, static_cast<std::uint16_t>(kHeight - bottom_top)});
+    f.text_utf8_sized(29, 226, "日期", 20);
     char date[20]{};
-    std::snprintf(date, sizeof(date), "%u月/%u日", s.month, s.day);
-    f.text_utf8(42, 254, date);
-    f.text_utf8(181, 222, "天气");
-    weather_icon(f, 145, 246, 0);
-    centered_number(f, 180, 238, 78, s.forecast_count > 0 ? static_cast<std::uint8_t>(s.forecast[0].temperature_c) : 0);
-    f.text_utf8(314, 222, "未来");
-    if (s.weather_valid && s.forecast_count > 1) {
-      weather_icon(f, 282, 246, 1);
-      centered_number(f, 316, 238, 78, static_cast<std::uint8_t>(s.forecast[1].temperature_c));
-    } else {
-      weather_icon(f, 282, 246, 2);
-      centered_number(f, 316, 238, 78, 0);
+    std::snprintf(date, sizeof(date), "%u/%u", s.month, s.day);
+    centered_scaled(f, 4, 96, 254, date, 3);
+
+    const auto count = std::min<std::size_t>(s.forecast_count, s.forecast.size());
+    const auto draw_weather_card = [&](std::uint16_t left, std::uint16_t right, const ForecastPoint* point,
+                                       std::uint8_t fallback_kind) {
+      const auto kind = point == nullptr ? fallback_kind : weather_kind(*point);
+      weather_icon(f, static_cast<std::uint16_t>(left + (right - left - 20) / 2), 228, kind, 20);
+      char temperature[12]{};
+      char hour[12]{};
+      if (point == nullptr) {
+        std::strcpy(temperature, "--");
+        std::strcpy(hour, "--:--");
+      } else {
+        std::snprintf(temperature, sizeof(temperature), "%d", point->temperature_c);
+        std::snprintf(hour, sizeof(hour), "%02u:00", point->hour);
+      }
+      centered_scaled(f, left, right, 250, temperature, 2);
+      centered_scaled(f, left, right, 276, hour, 1);
+    };
+    draw_weather_card(100, 190, count > 0 ? &s.forecast[0] : nullptr, 0);
+    for (std::size_t index{}; index < 3; ++index) {
+      const auto left = static_cast<std::uint16_t>(190 + index * 70);
+      draw_weather_card(left, static_cast<std::uint16_t>(left + 70), index + 1 < count ? &s.forecast[index + 1] : nullptr,
+                        static_cast<std::uint8_t>((index + 1) % 3));
     }
     return;
   }
