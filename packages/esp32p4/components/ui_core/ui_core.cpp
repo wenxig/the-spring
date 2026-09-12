@@ -175,12 +175,11 @@ void Frame::text_utf8_vertical_sized(std::uint16_t x, std::uint16_t y, const cha
   const auto length = std::strlen(value);
   for (std::size_t offset{}; offset < length;) {
     const auto codepoint = decode_utf8(input + offset, length - offset);
-    if (codepoint.value == '-') {
-      const auto width = static_cast<std::uint16_t>(size > 4 ? size - 4 : 1);
-      const auto line_y = static_cast<std::uint16_t>(cursor + size / 2);
-      for (std::uint16_t row{}; row < 2 && line_y + row < kHeight; ++row)
-        for (std::uint16_t column{}; column < width && x + 2 + column < kWidth; ++column)
-          pixel(static_cast<std::uint16_t>(x + 2 + column), static_cast<std::uint16_t>(line_y + row));
+    if (codepoint.value == '|') {
+      const auto line_x = static_cast<std::uint16_t>(x + size / 2);
+      for (std::uint16_t row{1}; row + 1 < size && cursor + row < kHeight; ++row)
+        for (std::uint16_t column{}; column < 2 && line_x + column < kWidth; ++column)
+          pixel(static_cast<std::uint16_t>(line_x + column), static_cast<std::uint16_t>(cursor + row));
     } else if (codepoint.value >= 0x80U) {
       const auto* begin = std::begin(detail::cjk_codepoints);
       const auto* end = std::end(detail::cjk_codepoints);
@@ -322,7 +321,7 @@ void Router::render(Frame& f, const Snapshot& s) const {
     const auto draw_weather_card = [&](std::uint16_t left, std::uint16_t right, const ForecastPoint* point,
                                        std::uint8_t fallback_kind) {
       const auto kind = point == nullptr ? fallback_kind : weather_kind(*point);
-      const auto prefix = left == 100 ? "现在-" : "将来-";
+      const auto prefix = left == 100 ? "现在|" : "将来|";
       char status[16]{};
       std::snprintf(status, sizeof(status), "%s%s", prefix, weather_condition(kind));
       f.text_utf8_vertical_sized(static_cast<std::uint16_t>(left + 4), 228, status, 12, 1);
