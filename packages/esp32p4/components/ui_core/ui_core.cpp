@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <cstring>
 #include "cjk_font.inc"
+#include "material_weather_icons.inc"
 
 namespace spring::ui {
 void Frame::clear() { data_.fill(0); }
@@ -192,18 +193,11 @@ void centered_number(Frame& frame, std::uint16_t left, std::uint16_t top, std::u
 }
 
 void weather_icon(Frame& frame, std::uint16_t x, std::uint16_t y, std::uint8_t kind) {
-  if (kind == 0) {
-    frame.box({static_cast<std::uint16_t>(x + 8), y, 16, 16});
-    frame.box({x, static_cast<std::uint16_t>(y + 8), 32, 1});
-  } else if (kind == 1) {
-    frame.box({x, static_cast<std::uint16_t>(y + 7), 30, 12});
-    frame.box({static_cast<std::uint16_t>(x + 8), y, 12, 14});
-  } else {
-    frame.box({x, static_cast<std::uint16_t>(y + 5), 32, 12});
-    frame.box({static_cast<std::uint16_t>(x + 7), static_cast<std::uint16_t>(y + 17), 1, 6});
-    frame.box({static_cast<std::uint16_t>(x + 16), static_cast<std::uint16_t>(y + 17), 1, 6});
-    frame.box({static_cast<std::uint16_t>(x + 25), static_cast<std::uint16_t>(y + 17), 1, 6});
-  }
+  const auto icon = static_cast<std::uint8_t>(std::min<std::uint8_t>(kind, 2));
+  for (std::uint16_t row{}; row < 32; ++row)
+    for (std::uint16_t column{}; column < 32; ++column)
+      if ((detail::material_weather_glyphs[icon][row * 4 + column / 8] & (0x80U >> (column % 8))) != 0)
+        frame.pixel(static_cast<std::uint16_t>(x + column), static_cast<std::uint16_t>(y + row));
 }
 }
 bool Router::dispatch(Event e) { if (e == Event::home) { route_ = Route::clock; return true; } if (e == Event::sleep) { route_ = route_ == Route::sleep ? Route::clock : Route::sleep; return true; } if (e == Event::cancel) { route_ = Route::clock; return true; } if (route_ == Route::sleep) return false; if (route_ == Route::settings && (e == Event::up || e == Event::down || e == Event::confirm)) { if (e == Event::up) setting_index_ = static_cast<std::uint8_t>((setting_index_ + 2) % 3); if (e == Event::down) setting_index_ = static_cast<std::uint8_t>((setting_index_ + 1) % 3); return true; } if (e == Event::right) { route_ = static_cast<Route>((static_cast<int>(route_) + 1) % 5); return true; } if (e == Event::left) { route_ = static_cast<Route>((static_cast<int>(route_) + 4) % 5); return true; } return false; }
