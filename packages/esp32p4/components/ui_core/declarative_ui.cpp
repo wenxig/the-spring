@@ -76,10 +76,18 @@ void ensure_ui() {
 void spring::ui::render_declarative(Frame& target, const Snapshot& snapshot) {
 #if defined(ESP_PLATFORM) && CONFIG_SPRING_LVGL_DECLARATIVE_UI
   (void)snapshot;
-  // Minimal panel bring-up screen: keep the application data and LVGL
-  // invalidation machinery out of the first physical display test.
+  // Minimal panel layout test: keep application data and LVGL invalidation
+  // machinery out of the physical display test while exercising several
+  // independent text positions and layout boundaries.
   target.clear();
-  target.text(142, 146, "HELLO WORLD");
+  target.box({8, 8, 384, 284});
+  target.text(148, 24, "HELLO WORLD");
+  target.box({24, 64, 168, 96});
+  target.box({208, 64, 168, 96});
+  target.text(42, 108, "HELLO WORLD");
+  target.text(226, 108, "HELLO WORLD");
+  target.box({24, 184, 352, 80});
+  target.text(148, 220, "HELLO WORLD");
   return;
 #else
   ensure_ui();
