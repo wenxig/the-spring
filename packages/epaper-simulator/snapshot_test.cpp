@@ -16,11 +16,11 @@ int main() {
                                  .day = 11,
                                  .weekday = 5,
                                  .weather_valid = true,
-                                 .forecast_count = 4,
-                                 .forecast = {{{.hour = 18, .temperature_c = 26, .description = "晴"},
-                                               {.hour = 21, .temperature_c = 24, .description = "多云"},
-                                               {.hour = 0, .temperature_c = 22, .description = "小雨"},
-                                               {.hour = 3, .temperature_c = 21, .description = "晴"}}}};
+                                 .forecast_count = 4};
+  connected.forecast[0] = {.hour = 18, .temperature_c = 26, .description = {"晴"}};
+  connected.forecast[1] = {.hour = 21, .temperature_c = 24, .description = {"多云"}};
+  connected.forecast[2] = {.hour = 0, .temperature_c = 22, .description = {"小雨"}};
+  connected.forecast[3] = {.hour = 3, .temperature_c = 21, .description = {"晴"}};
   router.render(offline, disconnected);
   router.render(online, connected);
   assert(offline.bytes() != online.bytes());
