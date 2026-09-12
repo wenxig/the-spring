@@ -167,7 +167,9 @@ void segment_digit(Frame& frame, std::uint16_t x, std::uint16_t y, std::uint8_t 
   const auto half = static_cast<std::uint16_t>((height - thickness) / 2);
   const auto draw = [&](std::uint8_t bit, std::uint16_t px, std::uint16_t py, std::uint16_t w, std::uint16_t h) {
     if ((mask & (1U << bit)) == 0) return;
-    frame.box({static_cast<std::uint16_t>(x + px), static_cast<std::uint16_t>(y + py), w, h});
+    for (auto row = std::uint16_t{}; row < h; ++row)
+      for (auto column = std::uint16_t{}; column < w; ++column)
+        frame.pixel(static_cast<std::uint16_t>(x + px + column), static_cast<std::uint16_t>(y + py + row));
   };
   draw(6, thickness, 0, width - 2 * thickness, thickness);
   draw(5, 0, thickness, thickness, half);
@@ -233,14 +235,14 @@ void Router::render(Frame& f, const Snapshot& s) const {
     f.box({0, 214, kWidth, 1});
     f.box({133, 214, 1, 86});
     f.box({266, 214, 1, 86});
-    f.text_utf8(8, 222, "日期");
+    f.text_utf8(48, 222, "日期");
     char date[20]{};
     std::snprintf(date, sizeof(date), "%u月/%u日", s.month, s.day);
-    f.text_utf8(8, 254, date);
-    f.text_utf8(141, 222, "天气");
+    f.text_utf8(42, 254, date);
+    f.text_utf8(181, 222, "天气");
     weather_icon(f, 145, 246, 0);
     centered_number(f, 180, 238, 78, s.forecast_count > 0 ? static_cast<std::uint8_t>(s.forecast[0].temperature_c) : 0);
-    f.text_utf8(276, 222, "未来");
+    f.text_utf8(314, 222, "未来");
     if (s.weather_valid && s.forecast_count > 1) {
       weather_icon(f, 282, 246, 1);
       centered_number(f, 316, 238, 78, static_cast<std::uint8_t>(s.forecast[1].temperature_c));
