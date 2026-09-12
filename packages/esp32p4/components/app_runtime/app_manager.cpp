@@ -1,6 +1,7 @@
 #include "esp_log.h"
 #include "app_runtime.hpp"
 #include "ui_core.hpp"
+#include "declarative_ui.hpp"
 #include "display_service.hpp"
 #include "clock_service.hpp"
 #include "at_engine.hpp"
@@ -76,7 +77,11 @@ void spring::app::render() {
                  snapshot.forecast[index].description.size() - 1);
     snapshot.forecast[index].description.back() = '\0';
   }
+  #if CONFIG_SPRING_LVGL_DECLARATIVE_UI
+  spring::ui::render_declarative(render_frame, snapshot);
+  #else
   router.render(render_frame, snapshot);
+  #endif
   spring::display::present(render_frame);
   ESP_LOGI(kTag, "ui route=%s dirty=%ux%u+%u+%u frame=%08lx", spring::ui::Router::title(router.route()), spring::display::pending_area().x, spring::display::pending_area().y, spring::display::pending_area().width, spring::display::pending_area().height, static_cast<unsigned long>(spring::display::frame_checksum()));
 #if CONFIG_SPRING_DISPLAY_BUFFER_ONLY
