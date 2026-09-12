@@ -1,0 +1,7 @@
+<project name="spring_ui" lvgl_version="9.5.0">
+  <targets>
+    <target name="epaper_400x300">
+      <display width="400" height="300" color_format="I1" />
+    </target>
+  </targets>
+</project>
