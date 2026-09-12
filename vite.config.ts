@@ -12,7 +12,82 @@ export default defineConfig({
   },
   fmt: fmt as OxfmtConfig,
   lint: lint as OxlintConfig,
-  run: { cache: { tasks: true, scripts: false } },
+  run: {
+    cache: { tasks: true, scripts: false },
+    tasks: {
+      'font:generate': {
+        command: 'sh scripts/generate_hywenhei_font.sh',
+        input: [
+          'scripts/generate_cjk_font.swift',
+          'scripts/generate_hywenhei_font.sh',
+          'assets/HYWenHei-65W-3.ttf',
+          'packages/esp32p4/components/ui_core/cjk_font.inc',
+        ],
+        output: ['packages/esp32p4/components/ui_core/cjk_font.inc'],
+      },
+      'simulator:build': {
+        command:
+          'cmake -S packages/epaper-simulator -B packages/epaper-simulator/build -G Ninja && cmake --build packages/epaper-simulator/build',
+        cache: false,
+        dependsOn: ['font:generate'],
+      },
+      'simulator:test': {
+        command: 'ctest --test-dir packages/epaper-simulator/build --output-on-failure',
+        cache: false,
+        dependsOn: ['simulator:build'],
+      },
+      'simulator:render': {
+        command:
+          'mkdir -p .artifacts/epaper && packages/epaper-simulator/build/epaper_simulator .artifacts/epaper/clock.pbm',
+        cache: false,
+        dependsOn: ['simulator:build'],
+      },
+      'simulator:render:fallback': {
+        command:
+          'mkdir -p .artifacts/epaper && packages/epaper-simulator/build/epaper_simulator .artifacts/epaper/clock-fallback.pbm fallback',
+        cache: false,
+        dependsOn: ['simulator:build'],
+      },
+      'simulator:patterns': {
+        command:
+          'mkdir -p .artifacts/epaper && packages/epaper-simulator/build/pattern_test .artifacts/epaper/pattern_',
+        cache: false,
+        dependsOn: ['simulator:build'],
+      },
+      'embedded:verify-buffer-only': {
+        command: 'python3 packages/epaper-simulator/verify.py',
+        cache: false,
+        dependsOn: ['font:generate'],
+      },
+      'embedded:verify': {
+        command:
+          "grep -Eq 'CONFIG_SPRING_DISPLAY_BUFFER_ONLY(=n| is not set)' packages/esp32p4/sdkconfig",
+        cache: false,
+        dependsOn: ['simulator:test', 'firmware:build'],
+      },
+      'firmware:build': {
+        command: "zsh -lc 'source .tools/esp-idf/export.sh && idf.py -C packages/esp32p4 build'",
+        cache: false,
+        dependsOn: ['font:generate'],
+      },
+      'firmware:flash': {
+        command:
+          'zsh -lc \'source .tools/esp-idf/export.sh && idf.py -C packages/esp32p4 -p "${ESP32_PORT:-/dev/cu.usbmodem141101}" flash\'',
+        cache: false,
+        dependsOn: ['firmware:build'],
+      },
+      'firmware:monitor': {
+        command:
+          'zsh -lc \'source .tools/esp-idf/export.sh && idf.py -C packages/esp32p4 -p "${ESP32_PORT:-/dev/cu.usbmodem141101}" monitor\'',
+        cache: false,
+      },
+      'board:capture': {
+        command:
+          'mkdir -p .artifacts/board && python3 packages/epaper-simulator/capture_frame.py .artifacts/board/frame.pbm --port "${ESP32_PORT:-/dev/cu.usbmodem141101}" --baud 115200 --timeout "${CAPTURE_TIMEOUT:-30}"',
+        cache: false,
+      },
+    },
+  },
   test: {
     clearMocks: true,
     restoreMocks: true,

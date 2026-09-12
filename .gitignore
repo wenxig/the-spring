@@ -62,3 +62,4 @@ packages/*/android/.gradle
 packages/epaper-simulator/build*/
 
 *.out
+.artifacts/
