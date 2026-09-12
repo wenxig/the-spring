@@ -113,9 +113,15 @@ void Frame::text_utf8(std::uint16_t x, std::uint16_t y, const char* value) {
         } else {
           const auto glyph = static_cast<std::size_t>(found - begin);
           for (std::uint16_t dy{}; dy < 16; ++dy)
-            for (std::uint16_t dx{}; dx < 16; ++dx)
-              if ((detail::cjk_glyphs[glyph * 32 + (15 - dy) * 2 + dx / 8] & (0x80U >> (dx % 8))) != 0)
+            for (std::uint16_t dx{}; dx < 16; ++dx) {
+              const auto source_row = static_cast<std::uint16_t>(dy * detail::cjk_glyph_size / 16);
+              const auto source_column = static_cast<std::uint16_t>(dx * detail::cjk_glyph_size / 16);
+              if ((detail::cjk_glyphs[glyph * detail::cjk_glyph_bytes +
+                                      (detail::cjk_glyph_size - 1 - source_row) * detail::cjk_glyph_row_bytes +
+                                      source_column / 8] &
+                   (0x80U >> (source_column % 8))) != 0)
                 pixel(cursor + dx, y + dy);
+            }
         }
       }
       cursor = static_cast<std::uint16_t>(cursor + 18);
@@ -143,15 +149,58 @@ void Frame::text_utf8_sized(std::uint16_t x, std::uint16_t y, const char* value,
         const auto glyph = found == end ? 0U : static_cast<std::size_t>(found - begin);
         for (std::uint16_t row{}; row < size; ++row)
           for (std::uint16_t column{}; column < size; ++column) {
-            const auto source_row = static_cast<std::uint16_t>(row * 16 / size);
-            const auto source_column = static_cast<std::uint16_t>(column * 16 / size);
-            const auto bits = found == end ? 0U : detail::cjk_glyphs[glyph * 32 + (15 - source_row) * 2 + source_column / 8];
-            if ((bits & (0x80U >> (source_column % 8))) != 0)
+            const auto scaled_row = static_cast<std::uint16_t>(row * detail::cjk_glyph_size / size);
+            const auto scaled_column = static_cast<std::uint16_t>(column * detail::cjk_glyph_size / size);
+            const auto bits = found == end
+                                  ? 0U
+                                  : detail::cjk_glyphs[glyph * detail::cjk_glyph_bytes +
+                                                       (detail::cjk_glyph_size - 1 - scaled_row) *
+                                                           detail::cjk_glyph_row_bytes +
+                                                       scaled_column / 8];
+            if ((bits & (0x80U >> (scaled_column % 8))) != 0)
               pixel(static_cast<std::uint16_t>(cursor + column), static_cast<std::uint16_t>(y + row));
           }
       }
       cursor = static_cast<std::uint16_t>(cursor + size + 2);
     }
+    offset += codepoint.width;
+  }
+}
+
+void Frame::text_utf8_vertical_sized(std::uint16_t x, std::uint16_t y, const char* value, std::uint8_t size,
+                                     std::uint8_t gap) {
+  if (value == nullptr || size == 0) return;
+  auto cursor = y;
+  const auto* input = reinterpret_cast<const unsigned char*>(value);
+  const auto length = std::strlen(value);
+  for (std::size_t offset{}; offset < length;) {
+    const auto codepoint = decode_utf8(input + offset, length - offset);
+    if (codepoint.value == '-') {
+      const auto width = static_cast<std::uint16_t>(size > 4 ? size - 4 : 1);
+      const auto line_y = static_cast<std::uint16_t>(cursor + size / 2);
+      for (std::uint16_t row{}; row < 2 && line_y + row < kHeight; ++row)
+        for (std::uint16_t column{}; column < width && x + 2 + column < kWidth; ++column)
+          pixel(static_cast<std::uint16_t>(x + 2 + column), static_cast<std::uint16_t>(line_y + row));
+    } else if (codepoint.value >= 0x80U) {
+      const auto* begin = std::begin(detail::cjk_codepoints);
+      const auto* end = std::end(detail::cjk_codepoints);
+      const auto* found = std::find(begin, end, codepoint.value);
+      if (found != end && x <= kWidth - size && cursor <= kHeight - size) {
+        const auto glyph = static_cast<std::size_t>(found - begin);
+        for (std::uint16_t row{}; row < size; ++row)
+          for (std::uint16_t column{}; column < size; ++column) {
+            const auto source_row = static_cast<std::uint16_t>(row * detail::cjk_glyph_size / size);
+            const auto source_column = static_cast<std::uint16_t>(column * detail::cjk_glyph_size / size);
+            const auto bits = detail::cjk_glyphs[glyph * detail::cjk_glyph_bytes +
+                                                 (detail::cjk_glyph_size - 1 - source_row) *
+                                                     detail::cjk_glyph_row_bytes +
+                                                 source_column / 8];
+            if ((bits & (0x80U >> (source_column % 8))) != 0)
+              pixel(static_cast<std::uint16_t>(x + column), static_cast<std::uint16_t>(cursor + row));
+          }
+      }
+    }
+    cursor = static_cast<std::uint16_t>(cursor + size + gap);
     offset += codepoint.width;
   }
 }
@@ -191,9 +240,9 @@ void Frame::text_scaled(std::uint16_t x, std::uint16_t y, const char* value, std
       for (std::uint8_t row{}; row < 7; ++row)
         for (std::uint8_t py{}; py < scale; ++py)
           for (std::uint8_t px{}; px < scale; ++px)
-            pixel(cursor + static_cast<std::uint16_t>((7 - row / 2) * scale + px),
+            pixel(cursor + static_cast<std::uint16_t>((4 - row / 2) * scale + px),
                   y + static_cast<std::uint16_t>(row * scale + py));
-      cursor = static_cast<std::uint16_t>(cursor + 9 * scale);
+      cursor = static_cast<std::uint16_t>(cursor + 6 * scale);
     } else if (value[i] == '-') {
       for (std::uint8_t py{}; py < scale; ++py)
         for (std::uint8_t px{}; px < 5 * scale; ++px) pixel(cursor + px, y + 3 * scale + py);
@@ -206,7 +255,7 @@ namespace {
 std::uint16_t scaled_text_width(const char* value, std::uint8_t scale) {
   auto width = std::uint16_t{};
   for (std::size_t index{}; value[index] != '\0'; ++index)
-    width = static_cast<std::uint16_t>(width + (value[index] == ':' ? 4 : value[index] == '/' ? 9 : 6) * scale);
+    width = static_cast<std::uint16_t>(width + (value[index] == ':' ? 4 : value[index] == '/' ? 6 : 6) * scale);
   return width;
 }
 
@@ -221,6 +270,11 @@ std::uint8_t weather_kind(const ForecastPoint& point) {
   if (std::strstr(point.description.data(), "雨") != nullptr) return 2;
   if (std::strstr(point.description.data(), "云") != nullptr) return 1;
   return 0;
+}
+
+const char* weather_condition(std::uint8_t kind) {
+  constexpr const char* conditions[] = {"晴", "云", "雨"};
+  return conditions[std::min<std::uint8_t>(kind, 2)];
 }
 
 void weather_icon(Frame& frame, std::uint16_t x, std::uint16_t y, std::uint8_t kind, std::uint8_t size) {
@@ -268,6 +322,10 @@ void Router::render(Frame& f, const Snapshot& s) const {
     const auto draw_weather_card = [&](std::uint16_t left, std::uint16_t right, const ForecastPoint* point,
                                        std::uint8_t fallback_kind) {
       const auto kind = point == nullptr ? fallback_kind : weather_kind(*point);
+      const auto prefix = left == 100 ? "现在-" : "将来-";
+      char status[16]{};
+      std::snprintf(status, sizeof(status), "%s%s", prefix, weather_condition(kind));
+      f.text_utf8_vertical_sized(static_cast<std::uint16_t>(left + 4), 228, status, 12, 1);
       weather_icon(f, static_cast<std::uint16_t>(left + (right - left - 20) / 2), 228, kind, 20);
       char temperature[12]{};
       char hour[12]{};

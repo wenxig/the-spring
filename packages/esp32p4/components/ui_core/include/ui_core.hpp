@@ -30,6 +30,8 @@ class Frame {
   void text_scaled(std::uint16_t x, std::uint16_t y, const char* value, std::uint8_t scale);
   void text_utf8(std::uint16_t x, std::uint16_t y, const char* value);
   void text_utf8_sized(std::uint16_t x, std::uint16_t y, const char* value, std::uint8_t size);
+  void text_utf8_vertical_sized(std::uint16_t x, std::uint16_t y, const char* value, std::uint8_t size,
+                                std::uint8_t gap = 0);
   [[nodiscard]] const auto& bytes() const { return data_; }
   [[nodiscard]] bool is_black(std::uint16_t x, std::uint16_t y) const;
   [[nodiscard]] Rect difference(const Frame& previous) const;

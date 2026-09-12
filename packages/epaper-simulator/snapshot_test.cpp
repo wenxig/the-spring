@@ -30,6 +30,13 @@ int main() {
     assert(online.is_black(260, y));
     assert(online.is_black(330, y));
   }
+  for (const auto left : {std::uint16_t{100}, std::uint16_t{190}, std::uint16_t{260}, std::uint16_t{330}}) {
+    auto has_status_pixels = false;
+    for (std::uint16_t y = 228; y < 282; ++y)
+      for (std::uint16_t x = static_cast<std::uint16_t>(left + 2); x < left + 18; ++x)
+        has_status_pixels = has_status_pixels || online.is_black(x, y);
+    assert(has_status_pixels);
+  }
   assert(router.dispatch(spring::ui::Event::right));
   router.render(offline, disconnected);
   router.render(online, connected);

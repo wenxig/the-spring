@@ -20,9 +20,20 @@ guard CTFontManagerRegisterFontsForURL(fontURL as CFURL, .process, &registration
   fatalError("could not register font: \(message)")
 }
 
-let font = CTFontCreateWithName("HYWenHei-65W" as CFString, 16, nil)
+let canvas = 32
+let glyphRowBytes = canvas / 8
+let glyphBytes = canvas * glyphRowBytes
+let font = CTFontCreateWithName("HYWenHei-65W" as CFString, CGFloat(canvas), nil)
+let postScriptName = CTFontCopyPostScriptName(font) as String
+guard postScriptName == "HYWenHei-FEW" else {
+  fatalError("unexpected font: \(postScriptName)")
+}
 let colorSpace = CGColorSpaceCreateDeviceGray()
 var output = "#pragma once\n#include <cstdint>\nnamespace spring::ui::detail {\n"
+output += "inline constexpr char cjk_font_name[] = \"HYWenHei-65W Medium\";\n"
+output += "inline constexpr std::uint8_t cjk_glyph_size = \(canvas);\n"
+output += "inline constexpr std::uint8_t cjk_glyph_row_bytes = \(glyphRowBytes);\n"
+output += "inline constexpr std::uint16_t cjk_glyph_bytes = \(glyphBytes);\n"
 output += "inline constexpr std::uint32_t cjk_codepoints[] = {"
 output += codepoints.map(String.init).joined(separator: ",")
 output += "};\ninline constexpr std::uint8_t cjk_glyphs[] = {"
@@ -33,13 +44,12 @@ for (index, codepoint) in codepoints.enumerated() {
   var glyph = CGGlyph()
   guard CTFontGetGlyphsForCharacters(font, &character, &glyph, 1), glyph != 0 else {
     missing += 1
-    output += Array(repeating: "0", count: 32).joined(separator: ",") + ","
+    output += Array(repeating: "0", count: glyphBytes).joined(separator: ",") + ","
     continue
   }
 
   var bounds = CGRect.zero
   CTFontGetBoundingRectsForGlyphs(font, .horizontal, &glyph, &bounds, 1)
-  let canvas = 16
   let pixels = UnsafeMutablePointer<UInt8>.allocate(capacity: canvas * canvas)
   pixels.initialize(repeating: 255, count: canvas * canvas)
   defer {
@@ -52,8 +62,8 @@ for (index, codepoint) in codepoints.enumerated() {
                                 space: colorSpace, bitmapInfo: CGImageAlphaInfo.none.rawValue) else {
     fatalError("could not create glyph bitmap context")
   }
-  context.setShouldAntialias(false)
-  context.setAllowsAntialiasing(false)
+  context.setShouldAntialias(true)
+  context.setAllowsAntialiasing(true)
   context.setFillColor(gray: 0, alpha: 1)
   let position = CGPoint(x: (CGFloat(canvas) - bounds.width) / 2 - bounds.minX,
                          y: (CGFloat(canvas) - bounds.height) / 2 - bounds.minY)
@@ -61,15 +71,16 @@ for (index, codepoint) in codepoints.enumerated() {
   CTFontDrawGlyphs(font, &drawGlyph, [position], 1, context)
 
   for row in 0..<canvas {
-    var first: UInt8 = 0
-    var second: UInt8 = 0
-    for column in 0..<canvas {
-      if pixels[(canvas - 1 - row) * canvas + column] < 128 {
-        if column < 8 { first |= 0x80 >> column }
-        else { second |= 0x80 >> (column - 8) }
+    for byteIndex in 0..<glyphRowBytes {
+      var packed: UInt8 = 0
+      for bit in 0..<8 {
+        let column = byteIndex * 8 + bit
+        if pixels[(canvas - 1 - row) * canvas + column] < 160 {
+          packed |= 0x80 >> bit
+        }
       }
+      output += "\(packed),"
     }
-    output += "\(first),\(second),"
   }
   if index % 500 == 0 { fputs("glyph \(index)/\(codepoints.count)\n", stderr) }
 }
