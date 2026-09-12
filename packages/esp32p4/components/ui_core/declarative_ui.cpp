@@ -11,6 +11,9 @@ namespace {
 lv_display_t* display = nullptr;
 lv_obj_t* time_label = nullptr;
 lv_obj_t* date_label = nullptr;
+std::array<lv_obj_t*, 7> weekday_labels{};
+std::array<lv_obj_t*, 4> forecast_labels{};
+std::array<lv_obj_t*, 4> forecast_hours{};
 spring::ui::Frame* target_frame = nullptr;
 std::array<std::uint8_t, spring::ui::kBytes + 8> draw_buffer{};
 
@@ -51,6 +54,19 @@ void ensure_ui() {
   date_label = lv_label_create(screen);
   lv_obj_set_pos(date_label, 29, 226);
   lv_obj_set_style_text_color(date_label, lv_color_white(), LV_PART_MAIN);
+  constexpr const char* weekdays[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
+  for (std::size_t index{}; index < weekday_labels.size(); ++index) {
+    weekday_labels[index] = lv_label_create(screen);
+    lv_obj_set_pos(weekday_labels[index], 323, static_cast<lv_coord_t>(16 + index * 20));
+    lv_label_set_text(weekday_labels[index], weekdays[index]);
+  }
+  for (std::size_t index{}; index < forecast_labels.size(); ++index) {
+    const auto x = static_cast<lv_coord_t>(106 + index * 70);
+    forecast_labels[index] = lv_label_create(screen);
+    forecast_hours[index] = lv_label_create(screen);
+    lv_obj_set_pos(forecast_labels[index], x, 250);
+    lv_obj_set_pos(forecast_hours[index], x, 276);
+  }
   lv_screen_load(screen);
 }
 }
@@ -67,6 +83,21 @@ void spring::ui::render_declarative(Frame& target, const Snapshot& snapshot) {
                 static_cast<unsigned>(snapshot.day));
   lv_label_set_text(time_label, time);
   lv_label_set_text(date_label, date);
+  constexpr const char* weekdays[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
+  for (std::size_t index{}; index < weekday_labels.size(); ++index)
+    lv_label_set_text(weekday_labels[index], weekdays[index]);
+  for (std::size_t index{}; index < forecast_labels.size(); ++index) {
+    char value[8]{}, hour[8]{};
+    if (index < snapshot.forecast_count && index < snapshot.forecast.size()) {
+      std::snprintf(value, sizeof(value), "%dC", snapshot.forecast[index].temperature_c);
+      std::snprintf(hour, sizeof(hour), "%02u:00", snapshot.forecast[index].hour);
+    } else {
+      std::snprintf(value, sizeof(value), "--");
+      std::snprintf(hour, sizeof(hour), "--:--");
+    }
+    lv_label_set_text(forecast_labels[index], value);
+    lv_label_set_text(forecast_hours[index], hour);
+  }
   lv_obj_invalidate(lv_screen_active());
   lv_timer_handler();
   target_frame = nullptr;
