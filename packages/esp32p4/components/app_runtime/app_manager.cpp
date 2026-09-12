@@ -8,6 +8,7 @@
 #include "network_service.hpp"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
+#include <array>
 #include <cstdio>
 #include <cstdint>
 #include <cstring>
@@ -19,6 +20,8 @@ spring::app::Application* current = nullptr;
 spring::ui::Router router;
 SemaphoreHandle_t render_lock = nullptr;
 EXT_RAM_BSS_ATTR spring::ui::Frame render_frame;
+constexpr std::size_t kFramePacketSize = 4U + 2U + 4U + 4U + 4U + spring::display::kFrameBytes + 4U;
+EXT_RAM_BSS_ATTR std::array<std::uint8_t, kFramePacketSize> frame_packet{};
 }
 
 void spring::app::start() {
@@ -91,14 +94,21 @@ void spring::app::render() {
   constexpr std::uint16_t version = 1;
   const auto id = ++frame_id;
   const auto checksum = spring::display::frame_checksum();
-  std::fwrite(&magic, sizeof(magic), 1, stdout);
-  std::fwrite(&version, sizeof(version), 1, stdout);
-  std::fwrite(&id, sizeof(id), 1, stdout);
   const auto length = static_cast<std::uint32_t>(bytes.size());
-  std::fwrite(&length, sizeof(length), 1, stdout);
-  std::fwrite(&checksum, sizeof(checksum), 1, stdout);
-  std::fwrite(bytes.data(), 1, bytes.size(), stdout);
-  std::fwrite(&magic, sizeof(magic), 1, stdout);
+  std::size_t offset{};
+  const auto append = [&](const auto value) {
+    std::memcpy(frame_packet.data() + offset, &value, sizeof(value));
+    offset += sizeof(value);
+  };
+  append(magic);
+  append(version);
+  append(id);
+  append(length);
+  append(checksum);
+  std::memcpy(frame_packet.data() + offset, bytes.data(), bytes.size());
+  offset += bytes.size();
+  append(magic);
+  std::fwrite(frame_packet.data(), offset, 1, stdout);
   std::fflush(stdout);
 #endif
   if (spring::display::healthy()) spring::display::complete_refresh();
