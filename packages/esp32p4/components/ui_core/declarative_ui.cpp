@@ -28,7 +28,8 @@ void flush(lv_display_t* disp, const lv_area_t* area, std::uint8_t* pixels) {
   for (std::uint16_t row{}; row < height; ++row) {
     for (std::uint16_t column{}; column < width; ++column) {
       const auto bit = static_cast<std::uint8_t>(0x80U >> (column % 8U));
-      const auto black = (source[static_cast<std::size_t>(row) * stride + column / 8U] & bit) != 0;
+      // LVGL I1 uses a set bit for the light palette entry; Frame stores set bits as black.
+      const auto black = (source[static_cast<std::size_t>(row) * stride + column / 8U] & bit) == 0;
       target_frame->pixel(static_cast<std::uint16_t>(area->x1 + column),
                           static_cast<std::uint16_t>(area->y1 + row), black);
     }
