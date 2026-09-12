@@ -1,5 +1,7 @@
 # 电子纸主机仿真
 
+仿真目标使用 GCC 的 C++26 编译规则；配置入口为根目录 `CMakePresets.json` 的 `native-*` 预设。ESP-IDF 固件继续使用其随附的 `riscv32-esp-elf-g++` 交叉 GCC 工具链。
+
 仿真器与 ESP-IDF 固件共同编译 `components/ui_core`，输出 SSD1683 所需的 400×300、1-bit framebuffer。PBM 使用 Netpbm `P4` 格式，文件头之后每行 50 字节，黑色像素按 MSB-first 排列。仿真目标只依赖 `ui_core`，不需要 ESP-IDF、GPIO、SPI、LVGL 或实体屏幕。
 
 ```sh
