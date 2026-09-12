@@ -74,6 +74,14 @@ void ensure_ui() {
 }
 
 void spring::ui::render_declarative(Frame& target, const Snapshot& snapshot) {
+#if defined(ESP_PLATFORM) && CONFIG_SPRING_LVGL_DECLARATIVE_UI
+  (void)snapshot;
+  // Minimal panel bring-up screen: keep the application data and LVGL
+  // invalidation machinery out of the first physical display test.
+  target.clear();
+  target.text(142, 146, "HELLO WORLD");
+  return;
+#else
   ensure_ui();
   // LVGL may submit only the regions invalidated since the previous frame.
   // Keep the existing framebuffer so an incremental flush cannot erase
@@ -109,6 +117,7 @@ void spring::ui::render_declarative(Frame& target, const Snapshot& snapshot) {
   lv_obj_invalidate(lv_screen_active());
   lv_timer_handler();
   target_frame = nullptr;
+#endif
 }
 #else
 void spring::ui::render_declarative(Frame& target, const Snapshot& snapshot) {
