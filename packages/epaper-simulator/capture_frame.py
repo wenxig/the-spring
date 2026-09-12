@@ -65,11 +65,11 @@ def capture_port(port, output, baud, timeout):
                 time.sleep(0.01)
                 continue
             buffer.extend(chunk)
-            if len(buffer) > HEADER.size + FRAME_BYTES + 4:
-                del buffer[: -(HEADER.size + FRAME_BYTES + 4)]
             start = buffer.find(marker)
             if start > 0:
                 del buffer[:start]
+            elif start < 0 and len(buffer) > HEADER.size + FRAME_BYTES + 4:
+                del buffer[: -(HEADER.size + FRAME_BYTES + 4)]
             if len(buffer) >= HEADER.size:
                 _, _, _, length, _ = HEADER.unpack_from(buffer)
                 packet_size = HEADER.size + length + 4
