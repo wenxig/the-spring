@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.28)
 
-project(zero_path_native LANGUAGES CXX)
+project(zero_path_native LANGUAGES C CXX)
 
 include(CTest)
 
@@ -9,9 +9,10 @@ option(ZERO_PATH_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" ON)
 
 add_library(zero_path_project_options INTERFACE)
 target_compile_features(zero_path_project_options INTERFACE cxx_std_26)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
-if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-  message(FATAL_ERROR "the-spring native C++ requires Clang; found ${CMAKE_CXX_COMPILER_ID}")
+if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  message(FATAL_ERROR "the-spring native C++ requires GCC; found ${CMAKE_CXX_COMPILER_ID}")
 endif()
 
 target_compile_options(zero_path_project_options INTERFACE

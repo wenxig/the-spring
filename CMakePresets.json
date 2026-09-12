@@ -8,15 +8,10 @@
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/native/${presetName}",
       "cacheVariables": {
-        "CMAKE_C_COMPILER": "$env{ZERO_PATH_LLVM_ROOT}/bin/clang",
-        "CMAKE_CXX_COMPILER": "$env{ZERO_PATH_LLVM_ROOT}/bin/clang++",
-        "CMAKE_CXX_COMPILER_LAUNCHER": "$env{ZERO_PATH_CCACHE}/ccache",
-        "CMAKE_MAKE_PROGRAM": "$env{ZERO_PATH_NINJA}",
+        "CMAKE_C_COMPILER": "$env{ZERO_PATH_GCC_ROOT}/bin/gcc-16",
+        "CMAKE_CXX_COMPILER": "$env{ZERO_PATH_GCC_ROOT}/bin/g++-16",
+        "CMAKE_MAKE_PROGRAM": "ninja",
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
-        "VCPKG_CHAINLOAD_TOOLCHAIN_FILE": "${sourceDir}/cmake/toolchains/vcpkg-clang.cmake",
-        "VCPKG_INSTALLED_DIR": "${sourceDir}/.cache/vcpkg/installed",
-        "VCPKG_MANIFEST_MODE": "ON",
         "ZERO_PATH_WARNINGS_AS_ERRORS": "ON"
       }
     },
