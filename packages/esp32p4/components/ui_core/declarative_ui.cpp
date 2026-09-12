@@ -16,6 +16,7 @@ std::array<lv_obj_t*, 4> forecast_labels{};
 std::array<lv_obj_t*, 4> forecast_hours{};
 spring::ui::Frame* target_frame = nullptr;
 std::array<std::uint8_t, spring::ui::kBytes + 8> draw_buffer{};
+bool frame_initialized = false;
 
 void flush(lv_display_t* disp, const lv_area_t* area, std::uint8_t* pixels) {
   (void)disp;
@@ -28,8 +29,8 @@ void flush(lv_display_t* disp, const lv_area_t* area, std::uint8_t* pixels) {
   for (std::uint16_t row{}; row < height; ++row) {
     for (std::uint16_t column{}; column < width; ++column) {
       const auto bit = static_cast<std::uint8_t>(0x80U >> (column % 8U));
-      // LVGL I1 uses a set bit for the light palette entry; Frame stores set bits as black.
-      const auto black = (source[static_cast<std::size_t>(row) * stride + column / 8U] & bit) == 0;
+      // LVGL I1's set bit is the light palette entry. The display frame uses set bits for black.
+      const auto black = (source[static_cast<std::size_t>(row) * stride + column / 8U] & bit) != 0;
       target_frame->pixel(static_cast<std::uint16_t>(area->x1 + column),
                           static_cast<std::uint16_t>(area->y1 + row), black);
     }
@@ -74,7 +75,13 @@ void ensure_ui() {
 
 void spring::ui::render_declarative(Frame& target, const Snapshot& snapshot) {
   ensure_ui();
-  target.clear();
+  // LVGL may submit only the regions invalidated since the previous frame.
+  // Keep the existing framebuffer so an incremental flush cannot erase
+  // unchanged pixels outside that region.
+  if (!frame_initialized) {
+    target.clear();
+    frame_initialized = true;
+  }
   target_frame = &target;
   char time[6]{};
   char date[16]{};

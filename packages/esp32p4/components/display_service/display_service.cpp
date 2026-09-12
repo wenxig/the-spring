@@ -28,6 +28,7 @@ constexpr std::uint8_t kCommandRamXCounter = 0x4E;
 constexpr std::uint8_t kCommandRamYCounter = 0x4F;
 constexpr std::uint8_t kCommandBorder = 0x3C;
 constexpr std::uint8_t kCommandTemperature = 0x18;
+constexpr std::uint8_t kCommandDisplayUpdateControl = 0x21;
 constexpr std::uint8_t kCommandDisplayUpdate = 0x22;
 constexpr std::uint8_t kCommandDisplayRefresh = 0x20;
 constexpr std::uint8_t kCommandBlackRam = 0x24;
@@ -110,8 +111,10 @@ bool refresh(spring::display::Rect area, bool full) {
     const std::array<std::uint8_t, 1> entry_mode{0x03};
     const std::array<std::uint8_t, 1> border{0x05};
     const std::array<std::uint8_t, 1> temperature{0x80};
+    const std::array<std::uint8_t, 2> display_update_control{0x40, 0x00};
     if (!command(kCommandSoftwareReset) || !wait_until_ready() ||
         !command(kCommandDriverOutput, driver_output) || !command(kCommandDataEntry, entry_mode) ||
+        !command(kCommandDisplayUpdateControl, display_update_control) ||
         !command(kCommandBorder, border) || !command(kCommandTemperature, temperature)) return false;
   }
   if (!full && !write_frame(kCommandPreviousRam, area, committed_frame.bytes().data())) return false;
@@ -154,10 +157,12 @@ void spring::display::start(Backend selected) {
     spi_bus_free(SPI2_HOST);
     return;
   }
-  gpio_set_level(kReset, 0);
-  vTaskDelay(pdMS_TO_TICKS(10));
   gpio_set_level(kReset, 1);
-  vTaskDelay(pdMS_TO_TICKS(10));
+  vTaskDelay(pdMS_TO_TICKS(100));
+  gpio_set_level(kReset, 0);
+  vTaskDelay(pdMS_TO_TICKS(2));
+  gpio_set_level(kReset, 1);
+  vTaskDelay(pdMS_TO_TICKS(100));
   epaper_ready = wait_until_ready();
   baseline_valid = false;
   partial_refreshes = 0;
