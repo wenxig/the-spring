@@ -34,7 +34,7 @@ void draw_header(Frame& frame, const Snapshot& snapshot) {
   frame.text(72, 58, "12:00");
   char time[6] = {static_cast<char>('0' + snapshot.hour / 10), static_cast<char>('0' + snapshot.hour % 10), ':',
                   static_cast<char>('0' + snapshot.minute / 10), static_cast<char>('0' + snapshot.minute % 10), '\0'};
-  frame.text_scaled(54, 76, time, 6);
+  frame.text_scaled(54, 76, time, 7);
 }
 
 void draw_countdown(Frame& frame) {
