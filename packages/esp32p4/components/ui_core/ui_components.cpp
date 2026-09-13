@@ -7,8 +7,7 @@
 namespace spring::ui::components {
 namespace {
 constexpr std::array<std::uint16_t, 4> kCardLeft{0, 69, 139, 208};
-constexpr std::array<const char*, 4> kCardTimes{"现在", "17:00", "21:00", "明天"};
-constexpr std::array<const char*, 4> kCardConditions{"晴", "阴", "雨", "晴"};
+constexpr std::array<const char*, 3> kConditions{"晴", "阴", "雨"};
 
 std::uint8_t weather_kind(const ForecastPoint& point) {
   if (std::strstr(point.description.data(), "雨") != nullptr) return 2;
@@ -67,8 +66,16 @@ void draw_forecast_card(Frame& frame, const Snapshot& snapshot, std::size_t inde
   if (point == nullptr) std::strcpy(temperature, "--");
   else std::snprintf(temperature, sizeof(temperature), "%d", point->temperature_c);
   frame.text(static_cast<std::uint16_t>(left + 56), 214, temperature);
-  frame.text_utf8_sized(static_cast<std::uint16_t>(left + 16), 258, kCardTimes[index], 12);
-  frame.text_utf8_sized(static_cast<std::uint16_t>(left + 25), 278, kCardConditions[index], 10);
+  if (index == 0) {
+    frame.text_utf8_sized(static_cast<std::uint16_t>(left + 16), 258, "现在", 12);
+  } else if (index == 3) {
+    frame.text_utf8_sized(static_cast<std::uint16_t>(left + 16), 258, "明天", 12);
+  } else if (point != nullptr) {
+    char hour[8]{};
+    std::snprintf(hour, sizeof(hour), "%02u:00", point->hour);
+    frame.text(static_cast<std::uint16_t>(left + 16), 262, hour);
+  }
+  frame.text_utf8_sized(static_cast<std::uint16_t>(left + 25), 278, kConditions[kind], 10);
 }
 
 void draw_dividers(Frame& frame) {
