@@ -81,7 +81,7 @@ void spring::app::render() {
     snapshot.forecast[index].description.back() = '\0';
   }
   #if CONFIG_SPRING_LVGL_DECLARATIVE_UI
-  spring::ui::render_declarative(render_frame, snapshot);
+  spring::ui::render_declarative(render_frame, snapshot, router);
   #else
   router.render(render_frame, snapshot);
   #endif

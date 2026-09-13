@@ -1,8 +1,23 @@
 <screen name="clock">
   <view width="#screen_width" height="#screen_height" layout="none">
-    <lv_label name="time" x="74" y="45" />
-    <lv_obj name="weekday_column" x="#accent_column" y="0" width="1" height="224" />
-    <lv_label name="weekday" x="323" y="16" />
-    <lv_obj name="forecast" x="0" y="#content_top" width="400" height="76" />
+    <lv_label name="period" x="28" y="53" font_size="18" />
+    <lv_label name="reference_time" x="72" y="58" text="- 12:00" />
+    <lv_label name="time" x="54" y="76" font_size="56" />
+    <lv_label name="countdown_prefix" x="88" y="146" font_size="14" />
+    <lv_label name="countdown_value" x="176" y="150" text="123" />
+    <lv_label name="countdown_unit" x="218" y="146" text="天" />
+    <lv_obj name="date_column" x="#accent_column" y="0" width="1" height="#screen_height" />
+    <lv_obj name="content_divider" x="0" y="#content_bottom" width="#accent_column" height="1" />
+    <lv_label name="weekday" x="300" y="53" text="星期一" font_size="18" />
+    <lv_obj name="weekday_rule" x="300" y="81" width="17" height="1" />
+    <lv_label name="year" x="300" y="98" text="2026" />
+    <lv_label name="month_value" x="300" y="118" text="1" font_size="35" />
+    <lv_label name="day_value" x="352" y="118" text="2" font_size="35" />
+    <lv_label name="month_unit" x="303" y="154" text="月" />
+    <lv_label name="day_unit" x="352" y="154" text="日" />
+    <component name="forecast_now" ref="forecast_card" x="0" y="#content_bottom" />
+    <component name="forecast_evening" ref="forecast_card" x="69" y="#content_bottom" />
+    <component name="forecast_night" ref="forecast_card" x="139" y="#content_bottom" />
+    <component name="forecast_tomorrow" ref="forecast_card" x="208" y="#content_bottom" />
   </view>
 </screen>

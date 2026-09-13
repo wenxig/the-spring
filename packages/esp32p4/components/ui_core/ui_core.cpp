@@ -139,8 +139,7 @@ void Frame::text_utf8_sized(std::uint16_t x, std::uint16_t y, const char* value,
     const auto codepoint = decode_utf8(input + offset, length - offset);
     if (codepoint.value < 0x80U) {
       char ascii[] = {static_cast<char>(codepoint.value), '\0'};
-      if (size == 16)
-        text(cursor, y, ascii);
+      if (size == 16) text(cursor, y, ascii);
       cursor = static_cast<std::uint16_t>(cursor + (size == 16 ? 6 : size));
     } else {
       const auto* begin = std::begin(detail::cjk_codepoints);
@@ -151,8 +150,7 @@ void Frame::text_utf8_sized(std::uint16_t x, std::uint16_t y, const char* value,
         for (std::uint16_t row{}; row < size; ++row)
           for (std::uint16_t column{}; column < size; ++column) {
             const auto scaled_row = static_cast<std::uint16_t>(row * detail::cjk_glyph_size / size);
-            const auto scaled_column =
-                static_cast<std::uint16_t>(column * detail::cjk_glyph_size / size);
+            const auto scaled_column = static_cast<std::uint16_t>(column * detail::cjk_glyph_size / size);
             const auto bits = found == end
                                   ? 0U
                                   : detail::cjk_glyphs[glyph * detail::cjk_glyph_bytes +
@@ -273,11 +271,6 @@ std::uint8_t weather_kind(const ForecastPoint& point) {
   return 0;
 }
 
-const char* weather_condition(std::uint8_t kind) {
-  constexpr const char* conditions[] = {"晴", "云", "雨"};
-  return conditions[std::min<std::uint8_t>(kind, 2)];
-}
-
 void weather_icon(Frame& frame, std::uint16_t x, std::uint16_t y, std::uint8_t kind, std::uint8_t size) {
   const auto icon = static_cast<std::uint8_t>(std::min<std::uint8_t>(kind, 2));
   for (std::uint16_t row{}; row < size; ++row)
@@ -296,66 +289,37 @@ void Router::render(Frame& f, const Snapshot& s) const {
   f.clear();
   f.box({0, 0, kWidth, kHeight});
   if (route_ == Route::clock) {
-    char time[6] = {
-        static_cast<char>('0' + s.hour / 10),   static_cast<char>('0' + s.hour % 10),   ':',
-        static_cast<char>('0' + s.minute / 10), static_cast<char>('0' + s.minute % 10), '\0'};
-    f.text_scaled(24, 45, time, 8);
-    constexpr const char* weekdays[] = {"星期日", "星期一", "星期二", "星期三",
-                                        "星期四", "星期五", "星期六"};
-    constexpr std::uint16_t calendar_left = 270;
-    constexpr std::uint16_t calendar_inset = 284;
-    f.box({calendar_left, 0, 1, 224});
-    constexpr std::array<std::uint16_t, 16> location_pin{0x0F0, 0x318, 0x60C, 0x406, 0x486, 0x5C6,
-                                                         0x486, 0x406, 0x60C, 0x318, 0x318, 0x1B0,
-                                                         0x1B0, 0x0E0, 0x0E0, 0x040};
-    for (std::uint16_t row{}; row < location_pin.size(); ++row)
-      for (std::uint16_t column{}; column < 12; ++column)
-        if ((location_pin[row] & (0x800U >> column)) != 0)
-          f.pixel(calendar_inset + column, 24 + row);
-    auto location = s.location_name;
-    location.back() = '\0';
-    f.text_utf8_sized(
-        301, 25,
-        location.front() == '\0' ? (s.locating ? "定位中" : "位置待更新") : location.data(), 12);
-    f.box({calendar_inset, 53, 101, 1});
-    f.text_utf8_sized(calendar_inset, 67, weekdays[s.weekday % 7], 22);
-    char year[8]{};
-    std::snprintf(year, sizeof(year), "%u", s.year);
-    f.text_scaled(calendar_inset, 103, year, 2);
-    constexpr std::uint16_t date_y = 139;
-    const auto draw_date_part = [&](std::uint16_t center, std::uint8_t value, const char* label) {
-      char number[4]{};
-      std::snprintf(number, sizeof(number), "%u", value);
-      constexpr auto scale = std::uint8_t{4};
-      const auto width = static_cast<std::uint16_t>(scaled_text_width(number, scale) - scale);
-      f.text_scaled(static_cast<std::uint16_t>(center - width / 2), date_y, number, scale);
-      f.text_utf8_sized(static_cast<std::uint16_t>(center - 7), 183, label, 14);
-    };
-    draw_date_part(309, s.month, "月");
-    draw_date_part(365, s.day, "日");
-    for (std::uint16_t row{}; row < 28; ++row)
-      for (std::uint16_t stroke{}; stroke < 3; ++stroke)
-        f.pixel(static_cast<std::uint16_t>(341 - row / 3 + stroke), date_y + row);
-    constexpr std::uint16_t bottom_top = 224;
-    f.box({0, bottom_top, kWidth, 1});
-    f.box({100, bottom_top, 1, static_cast<std::uint16_t>(kHeight - bottom_top)});
-    f.box({190, bottom_top, 1, static_cast<std::uint16_t>(kHeight - bottom_top)});
-    f.box({260, bottom_top, 1, static_cast<std::uint16_t>(kHeight - bottom_top)});
-    f.box({330, bottom_top, 1, static_cast<std::uint16_t>(kHeight - bottom_top)});
-    f.text_utf8_sized(29, 226, "日期", 20);
+    char time[6] = {static_cast<char>('0' + s.hour / 10), static_cast<char>('0' + s.hour % 10), ':',
+                    static_cast<char>('0' + s.minute / 10), static_cast<char>('0' + s.minute % 10), '\0'};
+    f.text_utf8_sized(28, 53, s.hour < 12 ? "上午" : "下午", 18);
+    f.text(72, 58, "- 12:00");
+    f.text_scaled(54, 76, time, 8);
+    f.text_utf8_sized(88, 146, "距离高考还有", 14);
+    f.text(176, 150, "123");
+    f.text_utf8_sized(218, 146, "天", 14);
+    f.box({277, 0, 1, 186});
+    f.box({0, 186, 277, 1});
+    f.text_utf8_sized(300, 53, "星期一", 18);
+    f.box({300, 81, 17, 1});
+    f.text(300, 98, "2026");
+    f.text_scaled(300, 118, "1/2", 5);
+    f.text_utf8_sized(303, 154, "月", 14);
+    f.text_utf8_sized(352, 154, "日", 14);
     char date[20]{};
     std::snprintf(date, sizeof(date), "%u/%u", s.month, s.day);
     centered_scaled(f, 4, 96, 254, date, 3);
 
     const auto count = std::min<std::size_t>(s.forecast_count, s.forecast.size());
-    const auto draw_weather_card = [&](std::uint16_t left, std::uint16_t right, const ForecastPoint* point,
-                                       std::uint8_t fallback_kind) {
-      const auto kind = point == nullptr ? fallback_kind : weather_kind(*point);
-      const auto prefix = left == 100 ? "现在|" : "将来|";
-      char status[16]{};
-      std::snprintf(status, sizeof(status), "%s%s", prefix, weather_condition(kind));
-      f.text_utf8_vertical_sized(static_cast<std::uint16_t>(left + 4), 228, status, 12, 1);
-      weather_icon(f, static_cast<std::uint16_t>(left + (right - left - 20) / 2), 228, kind, 20);
+    constexpr std::array<std::uint16_t, 4> card_left{0, 69, 139, 208};
+    constexpr std::array<std::uint16_t, 4> card_right{69, 139, 208, 277};
+    for (std::size_t index{}; index < card_left.size(); ++index) {
+      const auto left = card_left[index];
+      const auto right = card_right[index];
+      if (index != 0) f.box({left, 204, 1, 76});
+      const auto* point = index < count ? &s.forecast[index] : nullptr;
+      const auto kind = point == nullptr ? static_cast<std::uint8_t>(index % 3) : weather_kind(*point);
+      weather_icon(f, static_cast<std::uint16_t>(left + 13), 209, kind, 30);
+      f.box({static_cast<std::uint16_t>(right - 18), 212, 1, 35});
       char temperature[12]{};
       char hour[12]{};
       if (point == nullptr) {
@@ -365,14 +329,10 @@ void Router::render(Frame& f, const Snapshot& s) const {
         std::snprintf(temperature, sizeof(temperature), "%d", point->temperature_c);
         std::snprintf(hour, sizeof(hour), "%02u:00", point->hour);
       }
-      centered_scaled(f, left, right, 250, temperature, 2);
-      centered_scaled(f, left, right, 276, hour, 1);
-    };
-    draw_weather_card(100, 190, count > 0 ? &s.forecast[0] : nullptr, 0);
-    for (std::size_t index{}; index < 3; ++index) {
-      const auto left = static_cast<std::uint16_t>(190 + index * 70);
-      draw_weather_card(left, static_cast<std::uint16_t>(left + 70), index + 1 < count ? &s.forecast[index + 1] : nullptr,
-                        static_cast<std::uint8_t>((index + 1) % 3));
+      centered_scaled(f, static_cast<std::uint16_t>(left + 42), right, 211, temperature, 2);
+      centered_scaled(f, left, right, 262, hour, 1);
+      if (index == 0) f.text_utf8_sized(static_cast<std::uint16_t>(left + 20), 281, "现在", 12);
+      if (index == 3) f.text_utf8_sized(static_cast<std::uint16_t>(left + 20), 281, "明天", 12);
     }
     return;
   }

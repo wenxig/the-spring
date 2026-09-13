@@ -1,6 +1,6 @@
 if(COMMAND idf_component_register)
-  idf_component_register(SRCS "ui_core.cpp" "declarative_ui.cpp" INCLUDE_DIRS "include" REQUIRES lvgl)
+  idf_component_register(SRCS "ui_core.cpp" "declarative_ui.cpp" "ui_components.cpp" INCLUDE_DIRS "include" REQUIRES lvgl)
 else()
-  add_library(ui_core STATIC ui_core.cpp declarative_ui.cpp)
+  add_library(ui_core STATIC ui_core.cpp declarative_ui.cpp ui_components.cpp)
   target_include_directories(ui_core PUBLIC include)
 endif()

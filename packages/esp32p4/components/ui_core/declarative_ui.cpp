@@ -1,135 +1,35 @@
 #include "declarative_ui.hpp"
 #include "ui_core.hpp"
-
-#ifdef ESP_PLATFORM
-#include "lvgl.h"
-#include <algorithm>
-#include <array>
-#include <cstdio>
+#include "ui_components.hpp"
 
 namespace {
-lv_display_t* display = nullptr;
-lv_obj_t* time_label = nullptr;
-lv_obj_t* date_label = nullptr;
-std::array<lv_obj_t*, 7> weekday_labels{};
-std::array<lv_obj_t*, 4> forecast_labels{};
-std::array<lv_obj_t*, 4> forecast_hours{};
-spring::ui::Frame* target_frame = nullptr;
-std::array<std::uint8_t, spring::ui::kBytes + 8> draw_buffer{};
-bool frame_initialized = false;
-
-void flush(lv_display_t* disp, const lv_area_t* area, std::uint8_t* pixels) {
-  (void)disp;
-  if (target_frame == nullptr || area == nullptr || pixels == nullptr) return;
-  const auto width = static_cast<std::uint16_t>(lv_area_get_width(area));
-  const auto height = static_cast<std::uint16_t>(lv_area_get_height(area));
-  constexpr std::size_t palette_bytes = 8;
-  const auto* source = pixels + palette_bytes;
-  const auto stride = static_cast<std::size_t>((width + 7U) / 8U);
-  for (std::uint16_t row{}; row < height; ++row) {
-    for (std::uint16_t column{}; column < width; ++column) {
-      const auto bit = static_cast<std::uint8_t>(0x80U >> (column % 8U));
-      // LVGL I1's set bit is the light palette entry. The display frame uses set bits for black.
-      const auto black = (source[static_cast<std::size_t>(row) * stride + column / 8U] & bit) != 0;
-      target_frame->pixel(static_cast<std::uint16_t>(area->x1 + column),
-                          static_cast<std::uint16_t>(area->y1 + row), black);
-    }
-  }
-  lv_display_flush_ready(disp);
-}
-
-void ensure_ui() {
-  if (display != nullptr) return;
-  lv_init();
-  display = lv_display_create(spring::ui::kWidth, spring::ui::kHeight);
-  lv_display_set_color_format(display, LV_COLOR_FORMAT_I1);
-  lv_display_set_render_mode(display, LV_DISPLAY_RENDER_MODE_FULL);
-  lv_display_set_buffers(display, draw_buffer.data(), nullptr, draw_buffer.size(), LV_DISPLAY_RENDER_MODE_FULL);
-  lv_display_set_flush_cb(display, flush);
-  auto* screen = lv_obj_create(nullptr);
-  lv_obj_set_style_bg_color(screen, lv_color_black(), LV_PART_MAIN);
-  lv_obj_set_style_bg_opa(screen, LV_OPA_COVER, LV_PART_MAIN);
-  time_label = lv_label_create(screen);
-  lv_obj_set_pos(time_label, 74, 45);
-  lv_obj_set_style_text_color(time_label, lv_color_white(), LV_PART_MAIN);
-  lv_obj_set_style_text_font(time_label, &lv_font_montserrat_14, LV_PART_MAIN);
-  date_label = lv_label_create(screen);
-  lv_obj_set_pos(date_label, 29, 226);
-  lv_obj_set_style_text_color(date_label, lv_color_white(), LV_PART_MAIN);
-  constexpr const char* weekdays[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
-  for (std::size_t index{}; index < weekday_labels.size(); ++index) {
-    weekday_labels[index] = lv_label_create(screen);
-    lv_obj_set_pos(weekday_labels[index], 323, static_cast<lv_coord_t>(16 + index * 20));
-    lv_label_set_text(weekday_labels[index], weekdays[index]);
-  }
-  for (std::size_t index{}; index < forecast_labels.size(); ++index) {
-    const auto x = static_cast<lv_coord_t>(106 + index * 70);
-    forecast_labels[index] = lv_label_create(screen);
-    forecast_hours[index] = lv_label_create(screen);
-    lv_obj_set_pos(forecast_labels[index], x, 250);
-    lv_obj_set_pos(forecast_hours[index], x, 276);
-  }
-  lv_screen_load(screen);
+void render_xml_clock(spring::ui::Frame& frame, const spring::ui::Snapshot& snapshot) {
+  frame.clear();
+  frame.box({0, 0, 400, 300});
+  spring::ui::components::draw_header(frame, snapshot);
+  spring::ui::components::draw_countdown(frame);
+  spring::ui::components::draw_date_panel(frame, snapshot);
+  spring::ui::components::draw_dividers(frame);
+  for (std::size_t index{}; index < 4; ++index) spring::ui::components::draw_forecast_card(frame, snapshot, index);
 }
 }
 
-void spring::ui::render_declarative(Frame& target, const Snapshot& snapshot) {
-#if defined(ESP_PLATFORM) && CONFIG_SPRING_LVGL_DECLARATIVE_UI
-  (void)snapshot;
-  // Minimal panel layout test: keep application data and LVGL invalidation
-  // machinery out of the physical display test while exercising several
-  // independent text positions and layout boundaries.
+void spring::ui::render_declarative(Frame& target, const Snapshot& snapshot, const Router& router) {
+  if (router.route() == Route::clock) {
+    render_xml_clock(target, snapshot);
+    return;
+  }
   target.clear();
-  target.box({8, 8, 384, 284});
-  target.text(148, 24, "HELLO WORLD");
-  target.box({24, 64, 168, 96});
-  target.box({208, 64, 168, 96});
-  target.text(42, 108, "HELLO WORLD");
-  target.text(226, 108, "HELLO WORLD");
-  target.box({24, 184, 352, 80});
-  target.text(148, 220, "HELLO WORLD");
-  return;
-#else
-  ensure_ui();
-  // LVGL may submit only the regions invalidated since the previous frame.
-  // Keep the existing framebuffer so an incremental flush cannot erase
-  // unchanged pixels outside that region.
-  if (!frame_initialized) {
-    target.clear();
-    frame_initialized = true;
-  }
-  target_frame = &target;
-  char time[6]{};
-  char date[16]{};
-  std::snprintf(time, sizeof(time), "%02u:%02u", static_cast<unsigned>(snapshot.hour % 24U),
-                static_cast<unsigned>(snapshot.minute % 60U));
-  std::snprintf(date, sizeof(date), "%u/%u", static_cast<unsigned>(snapshot.month),
-                static_cast<unsigned>(snapshot.day));
-  lv_label_set_text(time_label, time);
-  lv_label_set_text(date_label, date);
-  constexpr const char* weekdays[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
-  for (std::size_t index{}; index < weekday_labels.size(); ++index)
-    lv_label_set_text(weekday_labels[index], weekdays[index]);
-  for (std::size_t index{}; index < forecast_labels.size(); ++index) {
-    char value[8]{}, hour[8]{};
-    if (index < snapshot.forecast_count && index < snapshot.forecast.size()) {
-      std::snprintf(value, sizeof(value), "%dC", snapshot.forecast[index].temperature_c);
-      std::snprintf(hour, sizeof(hour), "%02u:00", snapshot.forecast[index].hour);
-    } else {
-      std::snprintf(value, sizeof(value), "--");
-      std::snprintf(hour, sizeof(hour), "--:--");
-    }
-    lv_label_set_text(forecast_labels[index], value);
-    lv_label_set_text(forecast_hours[index], hour);
-  }
-  lv_obj_invalidate(lv_screen_active());
-  lv_timer_handler();
-  target_frame = nullptr;
-#endif
+  target.box({0, 0, 400, 300});
+  target.text_utf8(24, 24, Router::title(router.route()));
+  if (router.route() == Route::network)
+    target.text(120, 140, snapshot.registered ? "REGISTERED" : "SEARCHING");
+  else if (router.route() == Route::location)
+    target.text(120, 140, snapshot.locating ? "LOCATING" : "READY");
+  else if (router.route() == Route::call)
+    target.text(140, 140, snapshot.in_call ? "IN CALL" : "IDLE");
+  else if (router.route() == Route::settings)
+    target.text(110, 140, "SETTINGS");
+  else
+    target.text(150, 140, "SLEEP");
 }
-#else
-void spring::ui::render_declarative(Frame& target, const Snapshot& snapshot) {
-  Router router;
-  router.render(target, snapshot);
-}
-#endif
