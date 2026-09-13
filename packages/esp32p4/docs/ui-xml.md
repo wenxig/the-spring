@@ -15,7 +15,7 @@
 `node lved-cli.js generate ui_xml/project.xml`；生成结果放入
 `components/ui_core/generated/` 后由 CMake 编译。
 
-生成代码不得手工修改；业务适配放在 `ui_core/ui_bindings.cpp`。显示层继续负责 I1 位序、SSD1683 反相、脏矩形和整刷阈值。
+页面中的 `bind="snapshot.*"` 与 `bind="forecast.*"` 是动态数据绑定声明；生成代码不得手工修改，业务适配集中在 `ui_core/ui_bindings.cpp`（当前兼容实现为 `ui_components.cpp`）。显示层继续负责 I1 位序、SSD1683 反相、脏矩形和整刷阈值。
 
 ## 暂存兼容层
 
