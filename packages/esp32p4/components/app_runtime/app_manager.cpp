@@ -95,6 +95,8 @@ void spring::app::render() {
   for (std::size_t index{}; index < snapshot.forecast.size(); ++index) {
     snapshot.forecast[index].hour = local_weather.forecast[index].hour;
     snapshot.forecast[index].temperature_c = local_weather.forecast[index].temperature_c;
+    snapshot.forecast[index].temperature_low_c = local_weather.forecast[index].temperature_low_c;
+    snapshot.forecast[index].temperature_high_c = local_weather.forecast[index].temperature_high_c;
     std::strncpy(snapshot.forecast[index].description.data(), local_weather.forecast[index].description.data(),
                  snapshot.forecast[index].description.size() - 1);
     snapshot.forecast[index].description.back() = '\0';

@@ -69,10 +69,19 @@ void draw_forecast_card(Frame& frame, const Snapshot& snapshot, std::size_t inde
   const auto kind = point == nullptr ? static_cast<std::uint8_t>(index % 3) : weather_kind(*point);
   draw_weather_icon(frame, static_cast<std::uint16_t>(left + 13), 206, kind);
   frame.box({static_cast<std::uint16_t>(left + 51), 212, 1, 35});
-  char temperature[8]{};
-  if (point == nullptr) std::strcpy(temperature, "--");
-  else std::snprintf(temperature, sizeof(temperature), "%d", point->temperature_c);
-  frame.text(static_cast<std::uint16_t>(left + 56), 214, temperature);
+  char high[8]{}, low[8]{};
+  if (point == nullptr) {
+    std::strcpy(high, "--");
+    std::strcpy(low, "--");
+  } else {
+    const auto high_value = point->temperature_high_c == 0 ? point->temperature_c : point->temperature_high_c;
+    const auto low_value = point->temperature_low_c == 0 ? point->temperature_c : point->temperature_low_c;
+    std::snprintf(high, sizeof(high), "%d", high_value);
+    std::snprintf(low, sizeof(low), "%d", low_value);
+  }
+  frame.text(static_cast<std::uint16_t>(left + 56), 210, high);
+  frame.box({static_cast<std::uint16_t>(left + 61), 224, 8, 1});
+  frame.text(static_cast<std::uint16_t>(left + 56), 232, low);
   if (index == 0) {
     frame.text_utf8_sized(static_cast<std::uint16_t>(left + 16), 258, "现在", 12);
   } else if (index == 3) {

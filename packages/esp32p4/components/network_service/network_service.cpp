@@ -132,6 +132,8 @@ void update_weather() {
       const auto* timestamp = entry == nullptr ? nullptr : cJSON_GetObjectItemCaseSensitive(entry, "dt");
       const auto* main = entry == nullptr ? nullptr : cJSON_GetObjectItemCaseSensitive(entry, "main");
       const auto* temperature = main == nullptr ? nullptr : cJSON_GetObjectItemCaseSensitive(main, "temp");
+      const auto* temperature_min = main == nullptr ? nullptr : cJSON_GetObjectItemCaseSensitive(main, "temp_min");
+      const auto* temperature_max = main == nullptr ? nullptr : cJSON_GetObjectItemCaseSensitive(main, "temp_max");
       const auto* conditions = entry == nullptr ? nullptr : cJSON_GetObjectItemCaseSensitive(entry, "weather");
       const auto* condition = cJSON_IsArray(conditions) ? cJSON_GetArrayItem(conditions, 0) : nullptr;
       const auto* description = condition == nullptr ? nullptr : cJSON_GetObjectItemCaseSensitive(condition, "description");
@@ -142,6 +144,12 @@ void update_weather() {
       auto& point = next.forecast[next.count++];
       point.hour = static_cast<std::uint8_t>(local_time.tm_hour);
       point.temperature_c = static_cast<std::int16_t>(std::lround(temperature->valuedouble));
+      point.temperature_low_c = cJSON_IsNumber(temperature_min)
+                                    ? static_cast<std::int16_t>(std::lround(temperature_min->valuedouble))
+                                    : point.temperature_c;
+      point.temperature_high_c = cJSON_IsNumber(temperature_max)
+                                     ? static_cast<std::int16_t>(std::lround(temperature_max->valuedouble))
+                                     : point.temperature_c;
       std::strncpy(point.description.data(), description->valuestring, point.description.size() - 1);
       point.description.back() = '\0';
     }

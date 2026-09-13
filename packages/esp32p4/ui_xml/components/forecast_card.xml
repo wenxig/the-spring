@@ -2,7 +2,8 @@
   <view width="69" height="76" layout="none">
     <lv_image name="icon" x="13" y="22" width="32" height="32" />
     <lv_obj name="temperature_rule" x="51" y="26" width="1" height="35" />
-    <lv_label name="temperature" x="42" y="25" bind="forecast.temperature_c" />
+    <lv_label name="temperature_high" x="42" y="21" bind="forecast.temperature_high_c" />
+    <lv_label name="temperature_low" x="42" y="43" bind="forecast.temperature_low_c" />
     <lv_label name="hour" x="20" y="78" bind="forecast.hour" />
     <lv_label name="day_label" x="20" y="95" bind="forecast.description" />
   </view>

@@ -11,6 +11,8 @@ enum class Event : std::uint8_t { up, down, left, right, confirm, cancel, sleep,
 struct ForecastPoint {
   std::uint8_t hour{};
   std::int16_t temperature_c{};
+  std::int16_t temperature_low_c{};
+  std::int16_t temperature_high_c{};
   std::array<char, 24> description{};
 };
 struct Snapshot {
