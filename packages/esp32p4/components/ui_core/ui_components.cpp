@@ -29,17 +29,20 @@ void draw_weather_icon(Frame& frame, std::uint16_t x, std::uint16_t y, std::uint
 }
 
 void draw_header(Frame& frame, const Snapshot& snapshot) {
-  frame.text_utf8_sized(28, 53, snapshot.hour < 12 ? "上午" : "下午", 18);
-  frame.text(72, 58, "- 12:00");
+  frame.text_utf8_sized(28, 53, snapshot.hour <= 12 ? "上午" : "下午", 18);
+  frame.box({61, 60, 3, 3});
+  frame.text(72, 58, "12:00");
   char time[6] = {static_cast<char>('0' + snapshot.hour / 10), static_cast<char>('0' + snapshot.hour % 10), ':',
                   static_cast<char>('0' + snapshot.minute / 10), static_cast<char>('0' + snapshot.minute % 10), '\0'};
   frame.text_scaled(54, 76, time, 8);
 }
 
 void draw_countdown(Frame& frame) {
+  frame.box({53, 153, 34, 1});
   frame.text_utf8_sized(88, 146, "距离高考还有", 14);
   frame.text(176, 150, "123");
   frame.text_utf8_sized(218, 146, "天", 14);
+  frame.box({228, 153, 34, 1});
 }
 
 void draw_date_panel(Frame& frame, const Snapshot& snapshot) {

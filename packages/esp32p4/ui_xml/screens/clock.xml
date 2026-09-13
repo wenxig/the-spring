@@ -1,11 +1,14 @@
 <screen name="clock">
   <view width="#screen_width" height="#screen_height" layout="none">
     <lv_label name="period" x="28" y="53" font_size="18" />
-    <lv_label name="reference_time" x="72" y="58" text="- 12:00" />
+    <lv_obj name="reference_dot" x="61" y="60" width="3" height="3" />
+    <lv_label name="reference_time" x="72" y="58" text="12:00" />
     <lv_label name="time" x="54" y="76" font_size="56" />
     <lv_label name="countdown_prefix" x="88" y="146" font_size="14" />
     <lv_label name="countdown_value" x="176" y="150" text="123" />
     <lv_label name="countdown_unit" x="218" y="146" text="天" />
+    <lv_obj name="countdown_rule_left" x="53" y="153" width="34" height="1" />
+    <lv_obj name="countdown_rule_right" x="228" y="153" width="34" height="1" />
     <lv_obj name="date_column" x="#accent_column" y="0" width="1" height="#screen_height" />
     <lv_obj name="content_divider" x="0" y="#content_bottom" width="#accent_column" height="1" />
     <lv_label name="weekday" x="300" y="53" text="星期一" font_size="18" />
