@@ -1,10 +1,12 @@
 #include "ui_core.hpp"
 #include "declarative_ui.hpp"
+#include "reference_preview.inc"
 #include <fstream>
 #include <string>
 int main(int argc, char** argv) {
   const std::string path = argc > 1 ? argv[1] : "clock.pbm";
   const auto fallback = argc > 2 && std::string(argv[2]) == "fallback";
+  const auto reference_preview = argc > 2 && std::string(argv[2]) == "reference";
   spring::ui::Snapshot snapshot{};
   spring::ui::Router router;
   // Deterministic values from docs/example.png for pixel-level layout review.
@@ -22,7 +24,14 @@ int main(int argc, char** argv) {
   snapshot.forecast[2] = {.hour = 21, .temperature_c = 9, .description = {"雨"}};
   snapshot.forecast[3] = {.hour = 0, .temperature_c = 6, .description = {"晴"}};
   spring::ui::Frame frame;
-  spring::ui::render_declarative(frame, snapshot, router);
+  if (reference_preview) {
+    for (std::uint16_t y{}; y < spring::ui::kHeight; ++y)
+      for (std::uint16_t x{}; x < spring::ui::kWidth; ++x)
+        if ((kReferencePreview[static_cast<std::size_t>(y) * 50U + x / 8U] & (0x80U >> (x % 8U))) != 0)
+          frame.pixel(x, y);
+  } else {
+    spring::ui::render_declarative(frame, snapshot, router);
+  }
   if (!frame.is_black(0, 0) || !frame.is_black(399, 299)) return 2;
   std::ofstream out(path, std::ios::binary);
   out << "P4\n400 300\n";

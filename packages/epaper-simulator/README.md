@@ -9,6 +9,8 @@ cmake -S packages/epaper-simulator -B packages/epaper-simulator/build -G Ninja
 cmake --build packages/epaper-simulator/build
 ctest --test-dir packages/epaper-simulator/build --output-on-failure
 packages/epaper-simulator/build/epaper_simulator /tmp/clock.pbm
+# 生成 docs/example.png 的 400x300 黑白参考预览
+packages/epaper-simulator/build/epaper_simulator /tmp/example-reference.pbm reference
 ```
 
 生成首次接屏校准图案：
