@@ -1,4 +1,4 @@
-<screen name="clock">
+<screen name="clock" visual_reference="docs/example.png">
   <view width="#screen_width" height="#screen_height" layout="none">
     <lv_label name="period" x="28" y="53" font_size="18" />
     <lv_obj name="reference_dot" x="61" y="60" width="3" height="3" />

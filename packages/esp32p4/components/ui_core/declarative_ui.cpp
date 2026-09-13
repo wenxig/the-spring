@@ -7,10 +7,11 @@ void render_xml_clock(spring::ui::Frame& frame, const spring::ui::Snapshot& snap
   frame.clear();
   frame.box({0, 0, 400, 300});
   spring::ui::components::draw_header(frame, snapshot);
-  spring::ui::components::draw_countdown(frame);
+  spring::ui::components::draw_countdown(frame, snapshot);
   spring::ui::components::draw_date_panel(frame, snapshot);
   spring::ui::components::draw_dividers(frame);
-  for (std::size_t index{}; index < 4; ++index) spring::ui::components::draw_forecast_card(frame, snapshot, index);
+  for (std::size_t index{}; index < 4; ++index)
+    spring::ui::components::draw_forecast_card(frame, snapshot, index);
 }
 }
 

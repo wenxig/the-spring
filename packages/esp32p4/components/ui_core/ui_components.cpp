@@ -10,8 +10,11 @@ constexpr std::array<std::uint16_t, 4> kCardLeft{0, 69, 139, 208};
 constexpr std::array<const char*, 3> kConditions{"晴", "阴", "雨"};
 
 std::uint8_t weather_kind(const ForecastPoint& point) {
-  if (std::strstr(point.description.data(), "雨") != nullptr) return 2;
-  if (std::strstr(point.description.data(), "云") != nullptr) return 1;
+  const auto* description = point.description.data();
+  if (std::strstr(description, "雨") != nullptr || std::strstr(description, "rain") != nullptr ||
+      std::strstr(description, "storm") != nullptr) return 2;
+  if (std::strstr(description, "云") != nullptr || std::strstr(description, "cloud") != nullptr ||
+      std::strstr(description, "overcast") != nullptr) return 1;
   return 0;
 }
 
@@ -30,16 +33,18 @@ void draw_weather_icon(Frame& frame, std::uint16_t x, std::uint16_t y, std::uint
 void draw_header(Frame& frame, const Snapshot& snapshot) {
   frame.text_utf8_sized(28, 53, snapshot.hour <= 12 ? "上午" : "下午", 18);
   frame.box({61, 60, 3, 3});
-  frame.text(72, 58, "12:00");
   char time[6] = {static_cast<char>('0' + snapshot.hour / 10), static_cast<char>('0' + snapshot.hour % 10), ':',
                   static_cast<char>('0' + snapshot.minute / 10), static_cast<char>('0' + snapshot.minute % 10), '\0'};
+  frame.text(72, 58, time);
   frame.text_scaled(54, 76, time, 7);
 }
 
-void draw_countdown(Frame& frame) {
+void draw_countdown(Frame& frame, const Snapshot& snapshot) {
   frame.box({53, 153, 34, 1});
   frame.text_utf8_sized(88, 146, "距离高考还有", 14);
-  frame.text(176, 150, "123");
+  char days[8]{};
+  std::snprintf(days, sizeof(days), "%u", snapshot.countdown_days);
+  frame.text(176, 150, days);
   frame.text_utf8_sized(218, 146, "天", 14);
   frame.box({228, 153, 34, 1});
 }
@@ -87,4 +92,5 @@ void draw_dividers(Frame& frame) {
   frame.box({20, 186, 360, 1});
   for (const auto x : std::array<std::uint16_t, 3>{69, 139, 208}) frame.box({x, 204, 1, 76});
 }
+
 }

@@ -9,10 +9,12 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include <array>
+#include <algorithm>
 #include <cstdio>
 #include <cstdint>
 #include <cstring>
 #include <ctime>
+#include <cmath>
 
 namespace {
 constexpr char kTag[] = "app_manager";
@@ -70,6 +72,23 @@ void spring::app::render() {
     snapshot.month = static_cast<std::uint8_t>(local->tm_mon + 1);
     snapshot.day = static_cast<std::uint8_t>(local->tm_mday);
     snapshot.weekday = static_cast<std::uint8_t>(local->tm_wday);
+    std::tm today = *local;
+    today.tm_hour = 0;
+    today.tm_min = 0;
+    today.tm_sec = 0;
+    auto exam = today;
+    exam.tm_mon = 5;
+    exam.tm_mday = 7;
+    const auto today_time = std::mktime(&today);
+    auto exam_time = std::mktime(&exam);
+    if (exam_time <= today_time) {
+      ++exam.tm_year;
+      exam_time = std::mktime(&exam);
+    }
+    if (today_time != static_cast<std::time_t>(-1) && exam_time != static_cast<std::time_t>(-1)) {
+      const auto remaining = std::difftime(exam_time, today_time) / (24.0 * 60.0 * 60.0);
+      snapshot.countdown_days = static_cast<std::uint16_t>(std::max(0.0, std::ceil(remaining)));
+    }
   }
   snapshot.weather_valid = local_weather.valid;
   snapshot.forecast_count = local_weather.count;

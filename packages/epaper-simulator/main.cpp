@@ -14,6 +14,7 @@ int main(int argc, char** argv) {
   snapshot.month = 1;
   snapshot.day = 2;
   snapshot.weekday = 1;
+  snapshot.countdown_days = 123;
   snapshot.weather_valid = !fallback;
   snapshot.forecast_count = static_cast<std::uint8_t>(fallback ? 0 : 4);
   snapshot.forecast[0] = {.hour = 0, .temperature_c = 8, .description = {"晴"}};
