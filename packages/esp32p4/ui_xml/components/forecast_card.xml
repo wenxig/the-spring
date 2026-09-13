@@ -1,6 +1,6 @@
 <component name="forecast_card">
   <view width="69" height="76" layout="none">
-    <lv_image name="icon" x="13" y="23" width="30" height="30" />
+    <lv_image name="icon" x="13" y="22" width="32" height="32" />
     <lv_obj name="temperature_rule" x="51" y="26" width="1" height="35" />
     <lv_label name="temperature" x="42" y="25" />
     <lv_label name="hour" x="20" y="78" />

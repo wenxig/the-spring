@@ -17,14 +17,13 @@ std::uint8_t weather_kind(const ForecastPoint& point) {
 
 void draw_weather_icon(Frame& frame, std::uint16_t x, std::uint16_t y, std::uint8_t kind) {
   const auto icon = static_cast<std::uint8_t>(std::min<std::uint8_t>(kind, 2));
-  for (std::uint16_t row{}; row < 40; ++row)
-    for (std::uint16_t column{}; column < 40; ++column) {
-      const auto source_row = static_cast<std::uint16_t>(row * 32 / 40);
-      const auto source_column = static_cast<std::uint16_t>(column * 32 / 40);
-      if ((detail::material_weather_glyphs[icon][source_row * 4 + source_column / 8] &
-           (0x80U >> (source_column % 8))) != 0)
+  // Keep the source glyph at its native 32x32 grid. Non-integer nearest-
+  // neighbour scaling creates visibly jagged one-bit contours.
+  for (std::uint16_t row{}; row < 32; ++row)
+    for (std::uint16_t column{}; column < 32; ++column)
+      if ((detail::material_weather_glyphs[icon][row * 4 + column / 8] &
+           (0x80U >> (column % 8))) != 0)
         frame.pixel(static_cast<std::uint16_t>(x + column), static_cast<std::uint16_t>(y + row));
-    }
 }
 }
 
@@ -63,7 +62,7 @@ void draw_forecast_card(Frame& frame, const Snapshot& snapshot, std::size_t inde
   const auto left = kCardLeft[index];
   const auto* point = index < snapshot.forecast_count ? &snapshot.forecast[index] : nullptr;
   const auto kind = point == nullptr ? static_cast<std::uint8_t>(index % 3) : weather_kind(*point);
-  draw_weather_icon(frame, static_cast<std::uint16_t>(left + 10), 202, kind);
+  draw_weather_icon(frame, static_cast<std::uint16_t>(left + 13), 206, kind);
   frame.box({static_cast<std::uint16_t>(left + 51), 212, 1, 35});
   char temperature[8]{};
   if (point == nullptr) std::strcpy(temperature, "--");
@@ -82,8 +81,10 @@ void draw_forecast_card(Frame& frame, const Snapshot& snapshot, std::size_t inde
 }
 
 void draw_dividers(Frame& frame) {
+  // All structural rules are single-pixel strokes, the finest stable width
+  // representable by the 1-bit panel.
   frame.box({277, 0, 1, 300});
-  frame.box({0, 186, 277, 1});
+  frame.box({20, 186, 360, 1});
   for (const auto x : std::array<std::uint16_t, 3>{69, 139, 208}) frame.box({x, 204, 1, 76});
 }
 }
