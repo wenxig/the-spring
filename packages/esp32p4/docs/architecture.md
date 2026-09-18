@@ -11,15 +11,15 @@
 
 每个应用实现统一生命周期：`install`、`start`、`pause`、`resume`、`stop`，并声明名称、入口界面、需要订阅的事件和持久化命名空间。`AppManager` 同一时刻运行一个前台应用，可保留后台服务应用；S8 发送 `NavigateHome`，S7 发送 `SleepRequested`。
 
-应用通过依赖注入获得 `SystemContext`，其中包含时钟、显示、输入、网络、存储、定位和通话接口。应用不能直接操作 GPIO、UART、SPI 或 SQLite 连接。
+应用通过依赖注入获得 `SystemContext`，其中包含时钟、显示、输入、网络、存储、定位和通话接口。硬件总线和数据文件由服务统一管理。
 
 ## 事件与数据
 
-系统服务发布类型化事件，应用订阅后更新自身状态。跨模块事实通过统一快照和 revision 传递；UI 应用不复制 modem、网络或时间状态。StorageService 负责将选定事件持久化到 SQLite。
+系统服务发布类型化事件，应用订阅后更新自身状态。跨模块事实通过统一快照和 revision 传递；StorageService 使用 cJSON 将选定事件持久化到 SD 卡 JSON 文件。
 
 ## 资源与并发
 
-每个服务拥有自己的 FreeRTOS task、队列和同步对象；跨服务调用使用非阻塞消息或异步 future。DisplayService 独占 LVGL 和电子纸总线，ModemService 独占 AT 队列，StorageService 独占 SQLite 连接。
+服务通过任务、队列和同步对象管理资源。显示链路串行访问 LVGL 和电子纸总线，ModemService 管理 AT 队列，StorageService 管理 JSON 数据文件。
 
 ## 首版边界
 

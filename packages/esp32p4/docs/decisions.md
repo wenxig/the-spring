@@ -9,7 +9,7 @@
 - Modem：`esp_modem` 封装 UART 和 AT 通道，应用层维护注册、拨号、URC 状态机。
 - 电子纸：`esp_epaper` 负责 SSD1683 时序；400x300、单色 15,000 字节帧缓冲。若其 managed component 与目标 IDF/LVGL 适配不稳定，将在项目内封装同一接口并锁定已验证版本。
 - 网络：上层只依赖 `NetworkClient` 的 GET/POST 接口；底层按 Wi-Fi 优先、蜂窝网络回退自动选择链路，链路断开时指数退避并恢复请求队列。
-- 数据：SQLite 使用 SD 卡单连接存储服务，WAL、短事务和参数绑定；网络请求由独立服务执行，避免 UI/驱动任务阻塞。
+- 数据：StorageService 使用 cJSON 和 SD 卡 JSON 文件保存事件；网络请求由独立服务执行。
 
 ## 待讨论
 
