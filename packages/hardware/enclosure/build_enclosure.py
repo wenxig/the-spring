@@ -60,6 +60,19 @@ P = {
     "cover_lip_clearance": 0.4,
     "cover_counterbore_radius": 2.3,
     "cover_counterbore_depth": 1.7,
+    # Waveshare ESP32-P4-Module-DEV-KIT reference from assets/esp32-size.webp.
+    # The board is kept behind the display projection; GPIO edge is toward the display side.
+    "devboard_length": 85.0,
+    "devboard_height": 56.0,
+    "devboard_thickness": 1.6,
+    "devboard_x": 10.0,
+    "devboard_z": 10.0,
+    "devboard_hole_x": (4.5, 62.5),
+    "devboard_hole_z": (3.5, 52.5),
+    "devboard_boss_radius": 3.5,
+    "devboard_boss_y": 53.8,
+    "devboard_boss_height": 2.4,
+    "devboard_insert_depth": 4.0,
 }
 
 
@@ -232,6 +245,48 @@ def make_back_cover():
                     P["cover_counterbore_radius"],
                 )
             )
+
+    # Four rear-cover mounting seats for M2 brass heat-set inserts. The seats
+    # project into the front-shell cavity so the board can be installed before
+    # the front shell is clipped over it. A 0.2 mm overlap with the cover body
+    # keeps the seats a single printable solid.
+    devboard_mounts = []
+    for local_x in P["devboard_hole_x"]:
+        for local_z in P["devboard_hole_z"]:
+            x = P["devboard_x"] + local_x
+            z = P["devboard_z"] + local_z
+            devboard_mounts.append(
+                screw_cylinder(
+                    x,
+                    z,
+                    P["devboard_boss_y"],
+                    P["devboard_boss_height"],
+                    P["devboard_boss_radius"],
+                )
+            )
+    cover = cover.fuse(devboard_mounts).removeSplitter()
+    for local_x in P["devboard_hole_x"]:
+        for local_z in P["devboard_hole_z"]:
+            x = P["devboard_x"] + local_x
+            z = P["devboard_z"] + local_z
+            cover = cover.cut(
+                screw_cylinder(
+                    x,
+                    z,
+                    P["devboard_boss_y"],
+                    P["devboard_insert_depth"],
+                    P["insert_pilot_diameter"] / 2.0,
+                )
+            )
+            cover = cover.cut(
+                screw_cylinder(
+                    x,
+                    z,
+                    P["devboard_boss_y"],
+                    P["insert_lead_in_depth"],
+                    P["insert_outer_diameter"] / 2.0,
+                )
+            )
     return cover.removeSplitter()
 
 
@@ -265,6 +320,17 @@ def add_parameters(doc):
         ("DividerX", P["divider_x"]),
         ("DividerWidth", P["divider_width"]),
         ("DividerRearClearance", P["divider_rear_clearance"]),
+        ("DevboardLength", P["devboard_length"]),
+        ("DevboardHeight", P["devboard_height"]),
+        ("DevboardThickness", P["devboard_thickness"]),
+        ("DevboardX", P["devboard_x"]),
+        ("DevboardZ", P["devboard_z"]),
+        ("DevboardMountHolePitchX", P["devboard_hole_x"][1] - P["devboard_hole_x"][0]),
+        ("DevboardMountHolePitchZ", P["devboard_hole_z"][1] - P["devboard_hole_z"][0]),
+        ("DevboardBossRadius", P["devboard_boss_radius"]),
+        ("DevboardBossY", P["devboard_boss_y"]),
+        ("DevboardBossHeight", P["devboard_boss_height"]),
+        ("DevboardInsertDepth", P["devboard_insert_depth"]),
     ]
     sheet.set("A1", "Parameter")
     sheet.set("B1", "Value")
@@ -354,35 +420,37 @@ def main():
     add_property(cover, "Thickness", "4 mm")
     add_property(cover, "Fasteners", "4 x M2 x 6 mm, 2.4 mm clearance")
     add_property(front, "InsertSeats", "4 x M2 brass heat-set insert seats, 3.0 mm pilot x 4.0 mm deep")
+    add_property(
+        cover,
+        "DevboardMounts",
+        "4 x M2 brass heat-set insert seats; board envelope 85 x 56 x 1.6 mm",
+    )
+    add_property(cover, "DevboardPlacement", "Behind display projection; GPIO edge toward display")
+    add_property(cover, "Interfaces", "Internal only; no enclosure openings")
     add_property(cover, "PrintOrientation", "Flat face down; rotate +90 deg about X")
     assembly.addObject(cover)
 
     references = doc.addObject("App::Part", "ComponentReferences")
     references.Label = "Component references (non-printing)"
 
-    screen_ref = doc.addObject("Part::Feature", "ScreenReference")
-    screen_ref.Label = "QYEG0420BNS830 outer envelope (91 x 77 x 1.2 mm)"
-    screen_ref.Shape = Part.makeBox(
-        P["screen_outer_length"],
-        P["screen_outer_thickness"],
-        P["screen_outer_height"],
-        App.Vector(1.5, P["wall"] + 1.0, (P["outer_height"] - P["screen_outer_height"]) / 2.0),
+    devboard_ref = doc.addObject("Part::Feature", "ESP32P4DevKitReference")
+    devboard_ref.Label = "ESP32-P4-Module-DEV-KIT envelope (85 x 56 x 1.6 mm)"
+    devboard_ref.Shape = Part.makeBox(
+        P["devboard_length"],
+        P["devboard_thickness"],
+        P["devboard_height"],
+        App.Vector(
+            P["devboard_x"],
+            P["devboard_boss_y"] + 0.4,
+            P["devboard_z"],
+        ),
     )
-    add_property(screen_ref, "Source", "QYEG0420BNS830 product page: 91 x 77 x 1.2 mm")
-    add_property(screen_ref, "ReferencePlacement", "Left side; centered vertically, reference only")
-    references.addObject(screen_ref)
-
-    button_ref = doc.addObject("Part::Feature", "PushButtonReference")
-    button_ref.Label = "8 Push Buttons V1.02 max envelope (35 x 35 mm)"
-    button_ref.Shape = Part.makeBox(
-        P["button_window_size"],
-        10.0,
-        P["button_window_size"],
-        App.Vector(P["button_window_x"], P["wall"] + 1.0, P["button_window_z"]),
-    )
-    add_property(button_ref, "Source", "User measured maximum outside dimension: 35 mm")
-    add_property(button_ref, "ReferencePlacement", "Right lower compartment")
-    references.addObject(button_ref)
+    add_property(devboard_ref, "Source", "User-provided assets/esp32-size.webp: 85 x 56 mm")
+    add_property(devboard_ref, "MountingHolePitch", "58 x 49 mm")
+    add_property(devboard_ref, "GPIOOrientation", "Toward display side")
+    add_property(devboard_ref, "Interfaces", "Internal; no enclosure openings")
+    add_property(devboard_ref, "ReferencePlacement", "Behind display projection on rear cover")
+    references.addObject(devboard_ref)
 
     params.Visibility = False
     references.Visibility = False
@@ -417,6 +485,34 @@ def main():
                 P["m2_clearance"] / 2.0,
             ),
             "insert_boss_radial_wall_mm": P["boss_radius"] - P["insert_pilot_diameter"] / 2.0,
+            "devboard_mounts": [
+                {
+                    "x": P["devboard_x"] + local_x,
+                    "z": P["devboard_z"] + local_z,
+                    "insert_seat_material_mm3": float(
+                        cover_shape.common(
+                            screw_cylinder(
+                                P["devboard_x"] + local_x,
+                                P["devboard_z"] + local_z,
+                                P["devboard_boss_y"],
+                                P["devboard_insert_depth"],
+                                P["insert_pilot_diameter"] / 2.0,
+                            )
+                        ).Volume
+                    ),
+                    "outer_wall_mm": P["devboard_boss_radius"] - P["insert_pilot_diameter"] / 2.0,
+                }
+                for local_x in P["devboard_hole_x"]
+                for local_z in P["devboard_hole_z"]
+            ],
+            "devboard_reference_bbox_mm": {
+                "xmin": P["devboard_x"],
+                "ymin": P["devboard_boss_y"] + 0.4,
+                "zmin": P["devboard_z"],
+                "xmax": P["devboard_x"] + P["devboard_length"],
+                "ymax": P["devboard_boss_y"] + 0.4 + P["devboard_thickness"],
+                "zmax": P["devboard_z"] + P["devboard_height"],
+            },
         },
         "print_parts": [
             {

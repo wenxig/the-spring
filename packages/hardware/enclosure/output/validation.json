@@ -46,7 +46,24 @@
     "cover_lip_depth": 2.0,
     "cover_lip_clearance": 0.4,
     "cover_counterbore_radius": 2.3,
-    "cover_counterbore_depth": 1.7
+    "cover_counterbore_depth": 1.7,
+    "devboard_length": 85.0,
+    "devboard_height": 56.0,
+    "devboard_thickness": 1.6,
+    "devboard_x": 10.0,
+    "devboard_z": 10.0,
+    "devboard_hole_x": [
+      4.5,
+      62.5
+    ],
+    "devboard_hole_z": [
+      3.5,
+      52.5
+    ],
+    "devboard_boss_radius": 3.5,
+    "devboard_boss_y": 53.8,
+    "devboard_boss_height": 2.4,
+    "devboard_insert_depth": 4.0
   },
   "parts": [
     {
@@ -69,10 +86,10 @@
       "is_valid": true,
       "solids": 1,
       "shells": 1,
-      "volume_mm3": 40060.16689927654,
+      "volume_mm3": 40088.91478301213,
       "bbox_mm": {
         "xmin": 0.5,
-        "ymin": 53.999999999999986,
+        "ymin": 53.8,
         "zmin": 0.5,
         "xmax": 129.5,
         "ymax": 60.00000000000001,
@@ -126,7 +143,41 @@
         "remaining_material_mm3": 0.0
       }
     ],
-    "insert_boss_radial_wall_mm": 2.5
+    "insert_boss_radial_wall_mm": 2.5,
+    "devboard_mounts": [
+      {
+        "x": 14.5,
+        "z": 13.5,
+        "insert_seat_material_mm3": 0.0,
+        "outer_wall_mm": 2.0
+      },
+      {
+        "x": 14.5,
+        "z": 62.5,
+        "insert_seat_material_mm3": 0.0,
+        "outer_wall_mm": 2.0
+      },
+      {
+        "x": 72.5,
+        "z": 13.5,
+        "insert_seat_material_mm3": 0.0,
+        "outer_wall_mm": 2.0
+      },
+      {
+        "x": 72.5,
+        "z": 62.5,
+        "insert_seat_material_mm3": 0.0,
+        "outer_wall_mm": 2.0
+      }
+    ],
+    "devboard_reference_bbox_mm": {
+      "xmin": 10.0,
+      "ymin": 54.199999999999996,
+      "zmin": 10.0,
+      "xmax": 95.0,
+      "ymax": 55.8,
+      "zmax": 66.0
+    }
   },
   "print_parts": [
     {
@@ -150,7 +201,7 @@
         "zmin": 0.0,
         "xmax": 129.0,
         "ymax": 69.0,
-        "zmax": 6.0
+        "zmax": 6.199999809265137
       }
     }
   ]
