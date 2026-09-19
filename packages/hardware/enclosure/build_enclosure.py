@@ -25,6 +25,7 @@ P = {
     "wall": 4.0,
     "outer_radius": 8.0,
     "inner_radius": 4.0,
+    "shell_depth": 56.0,
     "window_z": 3.2,
     "window_length": 84.8,
     "window_height": 63.6,
@@ -36,15 +37,16 @@ P = {
     "button_window_radius": 4.0,
     "divider_x": 88.8,
     "divider_width": 2.2,
+    "divider_rear_clearance": 0.4,
     "screen_outer_length": 91.0,
     "screen_outer_height": 77.0,
     "screen_outer_thickness": 1.2,
-    "boss_radius": 5.0,
+    "boss_radius": 4.0,
     "screw_clearance": 3.4,
-    "boss_start_y": 48.0,
+    "boss_start_y": 44.0,
     "boss_length": 12.0,
-    "boss_x": (8.0, 122.0),
-    "boss_z": (8.0, 62.0),
+    "boss_x": (6.0, 124.0),
+    "boss_z": (6.0, 64.0),
     "cover_y": 56.0,
     "cover_thickness": 4.0,
     "cover_edge": 0.5,
@@ -85,7 +87,7 @@ def make_front_shell():
         0,
         P["outer_length"],
         P["outer_height"],
-        P["outer_depth"],
+        P["shell_depth"],
         0,
         P["outer_radius"],
     )
@@ -94,7 +96,7 @@ def make_front_shell():
         P["wall"],
         P["outer_length"] - 2 * P["wall"],
         P["outer_height"] - 2 * P["wall"],
-        P["outer_depth"] - P["wall"] + 1.0,
+        P["shell_depth"] - P["wall"] + 1.0,
         P["wall"],
         P["inner_radius"],
     )
@@ -122,9 +124,14 @@ def make_front_shell():
     shell = shell.cut(button_window)
 
     # Vertical internal separator: screen on the left, 35 mm button module at lower right.
+    divider_depth = (
+        P["cover_lip_start_y"]
+        - (P["wall"] - 0.2)
+        - P["divider_rear_clearance"]
+    )
     divider = Part.makeBox(
         P["divider_width"],
-        P["outer_depth"] - P["wall"] - 3.8,
+        divider_depth,
         P["outer_height"] - 2 * P["wall"],
         App.Vector(P["divider_x"], P["wall"] - 0.2, P["wall"]),
     )
@@ -167,7 +174,7 @@ def make_back_cover():
 
     # A shallow locating lip enters the front shell cavity.
     lip_clear = P["cover_lip_clearance"]
-    lip = rounded_prism_xz(
+    lip_outer = rounded_prism_xz(
         P["wall"] + lip_clear,
         P["wall"] + lip_clear,
         P["outer_length"] - 2 * (P["wall"] + lip_clear),
@@ -176,6 +183,23 @@ def make_back_cover():
         P["cover_lip_start_y"],
         P["inner_radius"] - lip_clear,
     )
+    # Keep the locating lip as a perimeter ring so the recessed screw bases
+    # and the internal electronics have clearance behind the cover.
+    lip_inner = rounded_prism_xz(
+        P["wall"] + 8.0,
+        P["wall"] + 8.0,
+        P["outer_length"] - 2 * (P["wall"] + 8.0),
+        P["outer_height"] - 2 * (P["wall"] + 8.0),
+        P["cover_lip_depth"] + 0.4,
+        P["cover_lip_start_y"] - 0.2,
+        max(1.0, P["inner_radius"] - 2.0),
+    )
+    lip = lip_outer.cut(lip_inner)
+    for x in P["boss_x"]:
+        for z in P["boss_z"]:
+            lip = lip.cut(
+                screw_cylinder(x, z, P["cover_lip_start_y"] - 0.4, P["cover_lip_depth"] + 0.8, P["boss_radius"] + 0.8)
+            )
     cover = cover.fuse(lip).removeSplitter()
 
     for x in P["boss_x"]:
@@ -221,6 +245,7 @@ def add_parameters(doc):
         ("ButtonMaxSize", P["button_window_size"]),
         ("DividerX", P["divider_x"]),
         ("DividerWidth", P["divider_width"]),
+        ("DividerRearClearance", P["divider_rear_clearance"]),
     ]
     sheet.set("A1", "Parameter")
     sheet.set("B1", "Value")
@@ -269,6 +294,21 @@ def shape_report(name, shape):
             "zmax": float(bb.ZMax),
         },
     }
+
+
+def screw_axis_report(shape, y0, depth):
+    checks = []
+    for x in P["boss_x"]:
+        for z in P["boss_z"]:
+            axis = screw_cylinder(x, z, y0, depth, P["screw_clearance"] / 2.0)
+            checks.append(
+                {
+                    "x": x,
+                    "z": z,
+                    "remaining_material_mm3": float(shape.common(axis).Volume),
+                }
+            )
+    return checks
 
 
 def main():
@@ -342,6 +382,19 @@ def main():
     report = {
         "parameters": P,
         "parts": [shape_report("front_shell", front_shape), shape_report("back_cover", cover_shape)],
+        "assembly": {
+            "solid_intersection_mm3": float(front_shape.common(cover_shape).Volume),
+            "front_screw_axis_material_mm3": screw_axis_report(
+                front_shape,
+                P["boss_start_y"] - 1.0,
+                P["boss_length"] + 2.0,
+            ),
+            "back_cover_screw_axis_material_mm3": screw_axis_report(
+                cover_shape,
+                P["cover_lip_start_y"] - 1.0,
+                P["cover_thickness"] + P["cover_lip_depth"] + 2.0,
+            ),
+        },
         "print_parts": [
             {
                 "name": "front_shell_print",

@@ -6,6 +6,7 @@
     "wall": 4.0,
     "outer_radius": 8.0,
     "inner_radius": 4.0,
+    "shell_depth": 56.0,
     "window_z": 3.2,
     "window_length": 84.8,
     "window_height": 63.6,
@@ -17,20 +18,21 @@
     "button_window_radius": 4.0,
     "divider_x": 88.8,
     "divider_width": 2.2,
+    "divider_rear_clearance": 0.4,
     "screen_outer_length": 91.0,
     "screen_outer_height": 77.0,
     "screen_outer_thickness": 1.2,
-    "boss_radius": 5.0,
+    "boss_radius": 4.0,
     "screw_clearance": 3.4,
-    "boss_start_y": 48.0,
+    "boss_start_y": 44.0,
     "boss_length": 12.0,
     "boss_x": [
-      8.0,
-      122.0
+      6.0,
+      124.0
     ],
     "boss_z": [
-      8.0,
-      62.0
+      6.0,
+      64.0
     ],
     "cover_y": 56.0,
     "cover_thickness": 4.0,
@@ -47,13 +49,13 @@
       "is_valid": true,
       "solids": 1,
       "shells": 1,
-      "volume_mm3": 103341.24204879449,
+      "volume_mm3": 95160.92351673308,
       "bbox_mm": {
         "xmin": 0.0,
         "ymin": 0.0,
         "zmin": 0.0,
         "xmax": 130.0,
-        "ymax": 60.00000000000002,
+        "ymax": 56.00000000000001,
         "zmax": 70.0
       }
     },
@@ -62,10 +64,10 @@
       "is_valid": true,
       "solids": 1,
       "shells": 1,
-      "volume_mm3": 49931.06898444268,
+      "volume_mm3": 39958.69345656561,
       "bbox_mm": {
         "xmin": 0.5,
-        "ymin": 54.0,
+        "ymin": 53.999999999999986,
         "zmin": 0.5,
         "xmax": 129.5,
         "ymax": 60.00000000000001,
@@ -73,6 +75,53 @@
       }
     }
   ],
+  "assembly": {
+    "solid_intersection_mm3": 0.0,
+    "front_screw_axis_material_mm3": [
+      {
+        "x": 6.0,
+        "z": 6.0,
+        "remaining_material_mm3": 0.0
+      },
+      {
+        "x": 6.0,
+        "z": 64.0,
+        "remaining_material_mm3": 0.0
+      },
+      {
+        "x": 124.0,
+        "z": 6.0,
+        "remaining_material_mm3": 0.0
+      },
+      {
+        "x": 124.0,
+        "z": 64.0,
+        "remaining_material_mm3": 0.0
+      }
+    ],
+    "back_cover_screw_axis_material_mm3": [
+      {
+        "x": 6.0,
+        "z": 6.0,
+        "remaining_material_mm3": 0.0
+      },
+      {
+        "x": 6.0,
+        "z": 64.0,
+        "remaining_material_mm3": 0.0
+      },
+      {
+        "x": 124.0,
+        "z": 6.0,
+        "remaining_material_mm3": 0.0
+      },
+      {
+        "x": 124.0,
+        "z": 64.0,
+        "remaining_material_mm3": 0.0
+      }
+    ]
+  },
   "print_parts": [
     {
       "name": "front_shell_print",
@@ -83,7 +132,7 @@
         "zmin": 0.0,
         "xmax": 130.0,
         "ymax": 70.0,
-        "zmax": 60.0
+        "zmax": 56.0
       }
     },
     {
