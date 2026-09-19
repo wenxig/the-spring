@@ -35,9 +35,6 @@ P = {
     "button_window_z": 6.0,
     "button_window_size": 35.0,
     "button_window_radius": 4.0,
-    "divider_x": 88.8,
-    "divider_width": 2.2,
-    "divider_rear_clearance": 4.2,
     "screen_outer_length": 91.0,
     "screen_outer_height": 77.0,
     "screen_outer_thickness": 1.2,
@@ -162,20 +159,6 @@ def make_front_shell():
         P["button_window_radius"],
     )
     shell = shell.cut(button_window)
-
-    # Vertical internal separator: screen on the left, 35 mm button module at lower right.
-    divider_depth = (
-        P["cover_lip_start_y"]
-        - (P["wall"] - 0.2)
-        - P["divider_rear_clearance"]
-    )
-    divider = Part.makeBox(
-        P["divider_width"],
-        divider_depth,
-        P["outer_height"] - 2 * P["wall"],
-        App.Vector(P["divider_x"], P["wall"] - 0.2, P["wall"]),
-    )
-    shell = shell.fuse(divider).removeSplitter()
 
     bosses = []
     for x in P["boss_x"]:
@@ -352,9 +335,6 @@ def add_parameters(doc):
         ("ScreenOuterLength", P["screen_outer_length"]),
         ("ScreenOuterHeight", P["screen_outer_height"]),
         ("ButtonMaxSize", P["button_window_size"]),
-        ("DividerX", P["divider_x"]),
-        ("DividerWidth", P["divider_width"]),
-        ("DividerRearClearance", P["divider_rear_clearance"]),
         ("DevboardLength", P["devboard_length"]),
         ("DevboardHeight", P["devboard_height"]),
         ("DevboardThickness", P["devboard_thickness"]),

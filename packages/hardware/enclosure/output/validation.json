@@ -16,9 +16,6 @@
     "button_window_z": 6.0,
     "button_window_size": 35.0,
     "button_window_radius": 4.0,
-    "divider_x": 88.8,
-    "divider_width": 2.2,
-    "divider_rear_clearance": 4.2,
     "screen_outer_length": 91.0,
     "screen_outer_height": 77.0,
     "screen_outer_thickness": 1.2,
@@ -73,7 +70,7 @@
       "is_valid": true,
       "solids": 1,
       "shells": 1,
-      "volume_mm3": 95858.6918417467,
+      "volume_mm3": 89611.57184174647,
       "bbox_mm": {
         "xmin": 0.0,
         "ymin": 0.0,
