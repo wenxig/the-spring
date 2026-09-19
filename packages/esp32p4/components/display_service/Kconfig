@@ -14,4 +14,14 @@ config SPRING_DISPLAY_PARTIAL_REFRESH_LIMIT
     range 1 255
     default 20
 
+config SPRING_DISPLAY_ENABLE_PARTIAL_REFRESH
+    bool "Enable electronic-paper partial refresh"
+    default n
+    help
+        Enable the SSD1683 partial-refresh command sequence. The
+        QYEG0420BNS830 panel-specific waveform and update sequence still need
+        to be verified on real hardware, so keep this disabled until that
+        validation is complete. Disabled mode always sends a full refresh,
+        which is slower but keeps the panel RAM and waveform state coherent.
+
 endmenu

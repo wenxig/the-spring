@@ -43,6 +43,11 @@ spring::display::Backend active_backend{spring::display::Backend::buffer_only};
 spi_device_handle_t spi_device = nullptr;
 bool epaper_ready = false;
 std::uint16_t partial_refreshes = 0;
+#if defined(CONFIG_SPRING_DISPLAY_ENABLE_PARTIAL_REFRESH)
+constexpr bool kPartialRefreshEnabled = CONFIG_SPRING_DISPLAY_ENABLE_PARTIAL_REFRESH != 0;
+#else
+constexpr bool kPartialRefreshEnabled = false;
+#endif
 
 bool wait_until_ready() {
   const auto deadline = esp_timer_get_time() + kBusyTimeoutUs;
@@ -231,7 +236,11 @@ void spring::display::present(const spring::ui::Frame& next) {
   const auto area = baseline_valid ? next.difference(committed_frame) : spring::ui::Rect{0, 0, 400, 300};
   if (area.width == 0 || area.height == 0) return;
   dirty = {area.x, area.y, area.width, area.height};
-  const auto full = !baseline_valid || area.width >= 392;
+  const auto limit_reached = partial_refreshes >= CONFIG_SPRING_DISPLAY_PARTIAL_REFRESH_LIMIT;
+  const auto full = !baseline_valid || area.width >= 392 || limit_reached || !kPartialRefreshEnabled;
+  ESP_LOGI(kTag, "present area=%ux%u+%u+%u mode=%s partial_count=%u limit=%u", dirty.width,
+           dirty.height, dirty.x, dirty.y, full ? "full" : "partial", partial_refreshes,
+           CONFIG_SPRING_DISPLAY_PARTIAL_REFRESH_LIMIT);
   if (active_backend == Backend::epaper) {
     if (!refresh(dirty, full)) {
       ESP_LOGE(kTag, "refresh failed for %ux%u+%u+%u; display baseline invalid", dirty.x, dirty.y, dirty.width, dirty.height);

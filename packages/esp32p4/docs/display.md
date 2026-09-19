@@ -8,6 +8,9 @@ LVGL 只在 `UiTask` 中运行，使用单色 `LV_COLOR_FORMAT_I1` 绘制。显�
 - 局部区域：合并相邻 dirty area，按 8 像素水平字节边界扩展，比较新旧帧后只发送变化矩形。
 - 局刷失败或 BUSY 超时：标记基线无效，下一次强制整帧；有限重试后上报显示故障。
 - 局刷计数、温度、残影阈值由策略配置控制，达到阈值后自动整帧清理。
-- 当前实现局刷累计 20 次后自动切换整刷；该数值是工程初始值，需结合面板版本、温度和残影实测调整。
+- `CONFIG_SPRING_DISPLAY_ENABLE_PARTIAL_REFRESH` 默认关闭。当前 QYEG0420BNS830
+  专属局刷波形和更新序列尚未完成实屏验证，默认每次发送整帧以保持控制器两块
+  RAM 与波形状态一致。取得匹配的 LUT 并完成实屏验证后，才启用局刷；启用时
+  `CONFIG_SPRING_DISPLAY_PARTIAL_REFRESH_LIMIT`（默认 20）会触发一次整帧清理。
 
 SPI、BUSY、复位和高压时序全部由 `EpaperService` 串行拥有。LVGL flush 在刷新完成前保持 pending 状态，完成后调用 `lv_display_flush_ready`。这样 LVGL 的局部刷新语义与 SSD1683 的实际帧状态保持一致。

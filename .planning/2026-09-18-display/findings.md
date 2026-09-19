@@ -11,3 +11,6 @@
 - 实机日志确认上述 SDIO 引脚与总线参数可用：`Card init success`、`slave chip id: 0x0d (esp32c6)`，Wi-Fi RPC 正常工作。
 - C6 上报 `coprocessor=0.0.0`、`major version mismatch`、缺少 `SDIO_MODE TLV`，随后进入 compatible streaming mode；当前 Wi-Fi 已成功联网，但应将 C6 协处理器固件版本作为后续维护项核对。
 - 真实板启动后电子纸路径未出现 BUSY 超时、SPI 初始化失败或刷新失败日志；应用输出首帧 checksum `12695988`，随后动态局部帧 `8f2b8917`。
+- 实拍局刷出现花屏，根因风险集中在当前代码使用未经 QYEG0420BNS830 实屏验证的 `0x26` 旧帧 RAM、局部窗口和 `0xFF` 更新模式；本型号专属 LUT/波形资料尚未取得。
+- 已保留工作正常的屏幕极性约定：帧数据发送前执行 `~source[...]`。本次修复仅切换刷新策略，不改变极性、坐标或 XML/UI 内容。
+- 复烧日志显示 `present area=... mode=full partial_count=0 limit=20`，证明 dirty area 仍由 UI 产生，但物理电子纸更新统一走整刷；后续重新开启局刷必须先取得匹配 LUT 并进行实屏残影、花屏和断电恢复验证。

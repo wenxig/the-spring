@@ -8,3 +8,5 @@
 - 真实板 `/dev/cu.usbmodem141101` 已烧录并启动：ESP32-P4 v1.3、16 MB Flash、32 MB PSRAM，应用提交 `4d395bb-dirty`。
 - ESP32-C6 通过 SDIO 4-bit/40 MHz 握手成功，Wi-Fi 连接 `dlsflfl` 获得 `192.168.50.127`，Wi-Fi NTP 校时成功；应用随后完成电子纸首帧与动态帧渲染日志。
 - 板上未检测到可用 SD host，cJSON 网络路径不受影响；存储挂载错误已记录为无 SD 卡/主控资源占用的硬件状态。
+- 针对实拍反馈的局刷花屏，新增 `CONFIG_SPRING_DISPLAY_ENABLE_PARTIAL_REFRESH`，默认关闭；关闭时即使上层提交 dirty area，SSD1683 也走已验证的整帧更新，保持面板两块 RAM 与波形状态一致。
+- 使用最新固件重新烧录 `/dev/cu.usbmodem141101` 并运行串口监控：启动和动态更新均为 `mode=full`、`partial_count=0`，未出现 `BUSY timeout` 或 `refresh failed`；C6 SDIO 握手、Wi-Fi `dlsflfl`、NTP 校时均正常。

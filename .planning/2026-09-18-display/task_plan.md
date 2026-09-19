@@ -9,9 +9,10 @@ XML 组件驱动 400×300 黑白 UI；默认 HYWenHei TTF 解析缩放；Ionicon
 3. 修复日期有效性、6月7日至9日状态及天气数据语义，增加边界验证。Status: complete
 4. 仿真视觉验证、静态检查、固件构建、烧录和日志核验。Status: complete
 5. 板载 ESP32-C6 Wi-Fi 优先链路、蜂窝回退与真实板验证。Status: complete (C6 firmware metadata warning tracked)
+6. 隔离未经面板波形验证的局刷路径，恢复真实屏稳定全刷。Status: complete
 
 ## Next Step
-已完成 `/dev/cu.usbmodem141101` 烧录与启动日志核验；后续维护项为更新 C6 协处理器固件元数据并复测兼容性告警。
+已完成 `/dev/cu.usbmodem141101` 烧录与启动日志核验；后续维护项为更新 C6 协处理器固件元数据并复测兼容性告警。局刷路径默认关闭，取得 QYEG0420BNS830 匹配 LUT 后再进行实屏验证。
 
 ## Errors
 初次技能合并读取输出截断；已拆分重读。
