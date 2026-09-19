@@ -42,7 +42,12 @@ P = {
     "screen_outer_height": 77.0,
     "screen_outer_thickness": 1.2,
     "boss_radius": 4.0,
-    "screw_clearance": 3.4,
+    "m2_clearance": 2.4,
+    "insert_outer_diameter": 3.2,
+    "insert_pilot_diameter": 3.0,
+    "insert_depth": 4.0,
+    "insert_lead_in_depth": 0.6,
+    "m2_screw_length": 6.0,
     "boss_start_y": 44.0,
     "boss_length": 12.0,
     "boss_x": (6.0, 124.0),
@@ -53,8 +58,8 @@ P = {
     "cover_lip_start_y": 54.0,
     "cover_lip_depth": 2.0,
     "cover_lip_clearance": 0.4,
-    "cover_counterbore_radius": 3.2,
-    "cover_counterbore_depth": 1.2,
+    "cover_counterbore_radius": 2.3,
+    "cover_counterbore_depth": 1.7,
 }
 
 
@@ -145,16 +150,26 @@ def make_front_shell():
             )
     shell = shell.fuse(bosses).removeSplitter()
 
-    # M3 clearance channels through the rear screw columns.
+    # Rear-entry seats for M2 brass heat-set inserts. The pilot diameter is
+    # intentionally undersized relative to the nominal insert outside diameter.
     for x in P["boss_x"]:
         for z in P["boss_z"]:
             shell = shell.cut(
                 screw_cylinder(
                     x,
                     z,
-                    P["boss_start_y"] - 1.0,
-                    P["boss_length"] + 2.0,
-                    P["screw_clearance"] / 2.0,
+                    P["shell_depth"] - P["insert_depth"],
+                    P["insert_depth"] + 0.1,
+                    P["insert_pilot_diameter"] / 2.0,
+                )
+            )
+            shell = shell.cut(
+                screw_cylinder(
+                    x,
+                    z,
+                    P["shell_depth"] - P["insert_lead_in_depth"],
+                    P["insert_lead_in_depth"] + 0.1,
+                    P["insert_outer_diameter"] / 2.0,
                 )
             )
     return shell.removeSplitter()
@@ -205,9 +220,9 @@ def make_back_cover():
     for x in P["boss_x"]:
         for z in P["boss_z"]:
             cover = cover.cut(
-                screw_cylinder(x, z, P["cover_y"] - 1.0, P["cover_thickness"] + 2.0, P["screw_clearance"] / 2.0)
+                screw_cylinder(x, z, P["cover_y"] - 1.0, P["cover_thickness"] + 2.0, P["m2_clearance"] / 2.0)
             )
-            # Rear-side counterbore for an M3 pan/cylinder head.
+            # Rear-side counterbore for an M2 pan/cylinder head.
             cover = cover.cut(
                 screw_cylinder(
                     x,
@@ -237,7 +252,11 @@ def add_parameters(doc):
         ("WindowLength", P["window_length"]),
         ("WindowHeight", P["window_height"]),
         ("WindowRadius", P["window_radius"]),
-        ("ScrewClearance", P["screw_clearance"]),
+        ("M2Clearance", P["m2_clearance"]),
+        ("InsertOuterDiameter", P["insert_outer_diameter"]),
+        ("InsertPilotDiameter", P["insert_pilot_diameter"]),
+        ("InsertDepth", P["insert_depth"]),
+        ("M2ScrewLength", P["m2_screw_length"]),
         ("CoverThickness", P["cover_thickness"]),
         ("CoverLipClearance", P["cover_lip_clearance"]),
         ("ScreenOuterLength", P["screen_outer_length"]),
@@ -296,11 +315,11 @@ def shape_report(name, shape):
     }
 
 
-def screw_axis_report(shape, y0, depth):
+def axis_clearance_report(shape, y0, depth, radius):
     checks = []
     for x in P["boss_x"]:
         for z in P["boss_z"]:
-            axis = screw_cylinder(x, z, y0, depth, P["screw_clearance"] / 2.0)
+            axis = screw_cylinder(x, z, y0, depth, radius)
             checks.append(
                 {
                     "x": x,
@@ -333,7 +352,8 @@ def main():
     cover.Label = "Back cover (printable)"
     cover.Shape = cover_shape
     add_property(cover, "Thickness", "4 mm")
-    add_property(cover, "Fasteners", "4 x M3, 3.4 mm clearance")
+    add_property(cover, "Fasteners", "4 x M2 x 6 mm, 2.4 mm clearance")
+    add_property(front, "InsertSeats", "4 x M2 brass heat-set insert seats, 3.0 mm pilot x 4.0 mm deep")
     add_property(cover, "PrintOrientation", "Flat face down; rotate +90 deg about X")
     assembly.addObject(cover)
 
@@ -384,16 +404,19 @@ def main():
         "parts": [shape_report("front_shell", front_shape), shape_report("back_cover", cover_shape)],
         "assembly": {
             "solid_intersection_mm3": float(front_shape.common(cover_shape).Volume),
-            "front_screw_axis_material_mm3": screw_axis_report(
+            "front_insert_seat_material_mm3": axis_clearance_report(
                 front_shape,
-                P["boss_start_y"] - 1.0,
-                P["boss_length"] + 2.0,
+                P["shell_depth"] - P["insert_depth"],
+                P["insert_depth"],
+                P["insert_pilot_diameter"] / 2.0,
             ),
-            "back_cover_screw_axis_material_mm3": screw_axis_report(
+            "back_cover_m2_axis_material_mm3": axis_clearance_report(
                 cover_shape,
                 P["cover_lip_start_y"] - 1.0,
                 P["cover_thickness"] + P["cover_lip_depth"] + 2.0,
+                P["m2_clearance"] / 2.0,
             ),
+            "insert_boss_radial_wall_mm": P["boss_radius"] - P["insert_pilot_diameter"] / 2.0,
         },
         "print_parts": [
             {

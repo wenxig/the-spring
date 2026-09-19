@@ -23,7 +23,12 @@
     "screen_outer_height": 77.0,
     "screen_outer_thickness": 1.2,
     "boss_radius": 4.0,
-    "screw_clearance": 3.4,
+    "m2_clearance": 2.4,
+    "insert_outer_diameter": 3.2,
+    "insert_pilot_diameter": 3.0,
+    "insert_depth": 4.0,
+    "insert_lead_in_depth": 0.6,
+    "m2_screw_length": 6.0,
     "boss_start_y": 44.0,
     "boss_length": 12.0,
     "boss_x": [
@@ -40,8 +45,8 @@
     "cover_lip_start_y": 54.0,
     "cover_lip_depth": 2.0,
     "cover_lip_clearance": 0.4,
-    "cover_counterbore_radius": 3.2,
-    "cover_counterbore_depth": 1.2
+    "cover_counterbore_radius": 2.3,
+    "cover_counterbore_depth": 1.7
   },
   "parts": [
     {
@@ -49,7 +54,7 @@
       "is_valid": true,
       "solids": 1,
       "shells": 1,
-      "volume_mm3": 95160.92351673308,
+      "volume_mm3": 95485.69465827104,
       "bbox_mm": {
         "xmin": 0.0,
         "ymin": 0.0,
@@ -64,7 +69,7 @@
       "is_valid": true,
       "solids": 1,
       "shells": 1,
-      "volume_mm3": 39958.69345656561,
+      "volume_mm3": 40060.16689927654,
       "bbox_mm": {
         "xmin": 0.5,
         "ymin": 53.999999999999986,
@@ -77,7 +82,7 @@
   ],
   "assembly": {
     "solid_intersection_mm3": 0.0,
-    "front_screw_axis_material_mm3": [
+    "front_insert_seat_material_mm3": [
       {
         "x": 6.0,
         "z": 6.0,
@@ -99,7 +104,7 @@
         "remaining_material_mm3": 0.0
       }
     ],
-    "back_cover_screw_axis_material_mm3": [
+    "back_cover_m2_axis_material_mm3": [
       {
         "x": 6.0,
         "z": 6.0,
@@ -120,7 +125,8 @@
         "z": 64.0,
         "remaining_material_mm3": 0.0
       }
-    ]
+    ],
+    "insert_boss_radial_wall_mm": 2.5
   },
   "print_parts": [
     {
