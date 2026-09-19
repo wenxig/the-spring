@@ -1,0 +1,93 @@
+{
+  "parameters": {
+    "outer_length": 130.0,
+    "outer_depth": 60.0,
+    "outer_height": 70.0,
+    "wall": 4.0,
+    "outer_radius": 8.0,
+    "inner_radius": 4.0,
+    "window_x": 14.0,
+    "window_z": 16.0,
+    "window_length": 102.0,
+    "window_height": 38.0,
+    "window_radius": 6.0,
+    "boss_radius": 5.0,
+    "screw_clearance": 3.4,
+    "boss_start_y": 48.0,
+    "boss_length": 12.0,
+    "boss_x": [
+      8.0,
+      122.0
+    ],
+    "boss_z": [
+      8.0,
+      62.0
+    ],
+    "cover_y": 56.0,
+    "cover_thickness": 4.0,
+    "cover_edge": 0.5,
+    "cover_lip_start_y": 54.0,
+    "cover_lip_depth": 2.0,
+    "cover_lip_clearance": 0.4,
+    "cover_counterbore_radius": 3.2,
+    "cover_counterbore_depth": 1.2
+  },
+  "parts": [
+    {
+      "name": "front_shell",
+      "is_valid": true,
+      "solids": 1,
+      "shells": 1,
+      "volume_mm3": 107307.0755443134,
+      "bbox_mm": {
+        "xmin": 0.0,
+        "ymin": 0.0,
+        "zmin": 0.0,
+        "xmax": 130.0,
+        "ymax": 60.00000000000002,
+        "zmax": 70.0
+      }
+    },
+    {
+      "name": "back_cover",
+      "is_valid": true,
+      "solids": 1,
+      "shells": 1,
+      "volume_mm3": 49931.06898444268,
+      "bbox_mm": {
+        "xmin": 0.5,
+        "ymin": 54.0,
+        "zmin": 0.5,
+        "xmax": 129.5,
+        "ymax": 60.00000000000001,
+        "zmax": 69.5
+      }
+    }
+  ],
+  "print_parts": [
+    {
+      "name": "front_shell_print",
+      "is_solid_mesh": true,
+      "bbox_mm": {
+        "xmin": 0.0,
+        "ymin": 0.0,
+        "zmin": 0.0,
+        "xmax": 130.0,
+        "ymax": 70.0,
+        "zmax": 60.0
+      }
+    },
+    {
+      "name": "back_cover_print",
+      "is_solid_mesh": true,
+      "bbox_mm": {
+        "xmin": 0.0,
+        "ymin": 0.0,
+        "zmin": 0.0,
+        "xmax": 129.0,
+        "ymax": 69.0,
+        "zmax": 6.0
+      }
+    }
+  ]
+}
