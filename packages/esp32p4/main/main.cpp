@@ -1,28 +1,26 @@
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "esp_log.h"
 #include "app_runtime.hpp"
-#include "ui_core.hpp"
-#include "clock_service.hpp"
-#include "input_service.hpp"
 #include "at_engine.hpp"
-#include "display_service.hpp"
-#include "storage_service.hpp"
-#include "network_service.hpp"
 #include "clock_app.hpp"
-#include "ota_service.hpp"
-#include "wifi_service.hpp"
-#include "power_service.hpp"
-#include "network_service.hpp"
-#include "sdkconfig.h"
+#include "clock_service.hpp"
+#include "display_service.hpp"
+#include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "input_service.hpp"
+#include "network_service.hpp"
+#include "ota_service.hpp"
+#include "power_service.hpp"
+#include "sdkconfig.h"
+#include "storage_service.hpp"
+#include "ui_core.hpp"
+#include "wifi_service.hpp"
 
 namespace {
 void interaction_task(void*) {
   while (true) {
     spring::input::Key key{};
-    if (!spring::input::next(key, 1000)) continue;
+    if (!spring::input::next(key, 1000))
+      continue;
     if (spring::power::state() == spring::power::State::sleeping) {
       spring::power::wake();
       spring::app::render();
@@ -33,8 +31,10 @@ void interaction_task(void*) {
       spring::power::request_sleep();
       continue;
     }
-    if (key == spring::input::Key::home) spring::app::navigate_home();
-    else spring::app::dispatch(static_cast<spring::ui::Event>(key));
+    if (key == spring::input::Key::home)
+      spring::app::navigate_home();
+    else
+      spring::app::dispatch(static_cast<spring::ui::Event>(key));
   }
 }
 
@@ -57,7 +57,7 @@ void clock_refresh_task(void*) {
     }
   }
 }
-}
+} // namespace
 
 namespace {
 constexpr char kTag[] = "the_spring";
@@ -77,11 +77,11 @@ extern "C" void app_main() {
 #endif
   spring::modem::start();
   spring::storage::mount_sdcard();
-  spring::network::start();
   spring::wifi::start();
+  spring::network::start();
   spring::power::start();
-  xTaskCreate(interaction_task, "interaction", 3072, nullptr, 5, nullptr);
-  xTaskCreate(clock_refresh_task, "clock_refresh", 3072, nullptr, 4, nullptr);
+  xTaskCreate(interaction_task, "interaction", 24576, nullptr, 5, nullptr);
+  xTaskCreate(clock_refresh_task, "clock_refresh", 24576, nullptr, 4, nullptr);
   spring::clock_app::register_app();
   spring::app::render();
   spring::ota::mark_boot_valid();

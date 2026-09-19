@@ -1,14 +1,17 @@
 #include "network_service.hpp"
 
-#include "esp_log.h"
 #include "at_engine.hpp"
-#include "clock_service.hpp"
-#include "location_service.hpp"
 #include "cJSON.h"
+#include "clock_service.hpp"
+#include "esp_crt_bundle.h"
+#include "esp_http_client.h"
+#include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
+#include "location_service.hpp"
 #include "sdkconfig.h"
+
 #include <atomic>
 #include <cmath>
 #include <cstdio>
@@ -16,26 +19,26 @@
 #include <cstring>
 #include <ctime>
 #include <string>
+#include <utility>
 
 namespace {
 constexpr char kTag[] = "network";
 std::atomic_bool wifi_available{false};
 std::atomic_bool cellular_available{false};
+std::atomic_bool wifi_attempt_finished{false};
 spring::network::WeatherSnapshot weather_state{};
 SemaphoreHandle_t weather_lock = nullptr;
 
 void install_fallback_weather() {
   spring::network::WeatherSnapshot fallback{};
-  fallback.valid = true;
-  fallback.count = 4;
-  fallback.forecast = {{{.hour = 18, .temperature_c = 26, .description = "晴"},
-                        {.hour = 21, .temperature_c = 24, .description = "多云"},
-                        {.hour = 0, .temperature_c = 22, .description = "小雨"},
-                        {.hour = 3, .temperature_c = 21, .description = "晴"}}};
+  fallback.valid = false;
+  fallback.fake_data = true;
+  fallback.count = 0;
   fallback.revision = weather_state.revision + 1;
   if (weather_lock == nullptr || xSemaphoreTake(weather_lock, pdMS_TO_TICKS(100)) == pdTRUE) {
     weather_state = fallback;
-    if (weather_lock != nullptr) xSemaphoreGive(weather_lock);
+    if (weather_lock != nullptr)
+      xSemaphoreGive(weather_lock);
   }
 }
 
@@ -45,12 +48,14 @@ bool query_response(std::string_view command, std::string& response, std::uint32
 
 bool parse_cclk(std::string_view response, std::int64_t& unix_seconds) {
   const auto start = response.find("+CCLK:");
-  if (start == std::string_view::npos) return false;
+  if (start == std::string_view::npos)
+    return false;
   int year{}, month{}, day{}, hour{}, minute{}, second{}, zone{};
   char sign{'+'};
   const auto text = std::string{response.substr(start)};
-  if (std::sscanf(text.c_str(), "+CCLK: \"%d/%d/%d,%d:%d:%d%c%d", &year, &month, &day,
-                  &hour, &minute, &second, &sign, &zone) != 8) return false;
+  if (std::sscanf(text.c_str(), "+CCLK: \"%d/%d/%d,%d:%d:%d%c%d", &year, &month, &day, &hour,
+                  &minute, &second, &sign, &zone) != 8)
+    return false;
   year += year < 70 ? 2000 : 1900;
   const auto y = static_cast<std::int64_t>(year);
   const auto adjusted_year = y - (month <= 2 ? 1 : 0);
@@ -70,11 +75,14 @@ bool sync_clock_from_modem() {
   auto result = spring::modem::execute("AT+QNTP=1,\"ntp.aliyun.com\",123", 70000);
   if (result != spring::modem::Result::ok)
     result = spring::modem::execute("AT+QNTP=1,\"time1.cloud.tencent.com\",123", 70000);
-  if (result != spring::modem::Result::ok) return false;
+  if (result != spring::modem::Result::ok)
+    return false;
   std::string response;
-  if (!query_response("AT+CCLK?", response, 5000)) return false;
+  if (!query_response("AT+CCLK?", response, 5000))
+    return false;
   std::int64_t unix_seconds{};
-  if (!parse_cclk(response, unix_seconds)) return false;
+  if (!parse_cclk(response, unix_seconds))
+    return false;
   spring::clock::set_unix_seconds(unix_seconds);
   ESP_LOGI(kTag, "clock synchronized from China NTP source");
   return true;
@@ -83,27 +91,34 @@ bool sync_clock_from_modem() {
 bool configure_http() {
   return spring::modem::execute("AT+QHTTPCFG=\"contextid\",1", 5000) == spring::modem::Result::ok &&
          spring::modem::execute("AT+QHTTPCFG=\"sslctxid\",1", 5000) == spring::modem::Result::ok &&
-         spring::modem::execute("AT+QSSLCFG=\"sslversion\",1,4", 5000) == spring::modem::Result::ok &&
+         spring::modem::execute("AT+QSSLCFG=\"sslversion\",1,4", 5000) ==
+             spring::modem::Result::ok &&
          spring::modem::execute("AT+QSSLCFG=\"seclevel\",1,0", 5000) == spring::modem::Result::ok;
 }
 
 bool bring_up_cellular() {
-  if (spring::modem::execute("AT", 3000) != spring::modem::Result::ok) return false;
+  if (spring::modem::execute("AT", 3000) != spring::modem::Result::ok)
+    return false;
   (void)spring::modem::execute("ATE0", 3000);
   (void)spring::modem::execute("AT+CPIN?", 5000);
   for (auto attempt = 0; attempt < 12; ++attempt) {
     std::string response;
     if (query_response("AT+CEREG?", response, 5000) &&
-        (response.find(",1") != std::string::npos || response.find(",5") != std::string::npos)) break;
+        (response.find(",1") != std::string::npos || response.find(",5") != std::string::npos))
+      break;
     vTaskDelay(pdMS_TO_TICKS(5000));
-    if (attempt == 11) return false;
+    if (attempt == 11)
+      return false;
   }
   (void)spring::modem::execute("AT+CSQ", 5000);
   if (spring::modem::execute("AT+QIACT=1", 30000) != spring::modem::Result::ok) {
-    if (spring::modem::execute("AT+QICSGP=1,1,\"CMNET\",\"\",\"\",1", 5000) != spring::modem::Result::ok ||
-        spring::modem::execute("AT+QIACT=1", 30000) != spring::modem::Result::ok) return false;
+    if (spring::modem::execute("AT+QICSGP=1,1,\"CMNET\",\"\",\"\",1", 5000) !=
+            spring::modem::Result::ok ||
+        spring::modem::execute("AT+QIACT=1", 30000) != spring::modem::Result::ok)
+      return false;
   }
-  if (!configure_http()) return false;
+  if (!configure_http())
+    return false;
   cellular_available.store(true);
   return true;
 }
@@ -111,46 +126,67 @@ bool bring_up_cellular() {
 void update_weather() {
 #ifdef CONFIG_SPRING_OPENWEATHER_API_KEY
   const auto location = spring::modem::snapshot();
-  if (!location.location_valid || CONFIG_SPRING_OPENWEATHER_API_KEY[0] == '\0') return;
+  if (!location.location_valid || CONFIG_SPRING_OPENWEATHER_API_KEY[0] == '\0')
+    return;
   char url[384]{};
   std::snprintf(url, sizeof(url),
-                "https://api.openweathermap.org/data/2.5/forecast?lat=%.6f&lon=%.6f&appid=%s&units=metric&lang=zh_cn",
+                "https://api.openweathermap.org/data/2.5/"
+                "forecast?lat=%.6f&lon=%.6f&appid=%s&units=metric&lang=zh_cn",
                 location.latitude, location.longitude, CONFIG_SPRING_OPENWEATHER_API_KEY);
   const auto response = spring::network::get(url);
-  if (response.status != 200) return;
+  if (response.status != 200)
+    return;
   auto* root = cJSON_Parse(response.body.c_str());
-  if (root == nullptr) return;
+  if (root == nullptr)
+    return;
   const auto* city = cJSON_GetObjectItemCaseSensitive(root, "city");
-  const auto* timezone = city == nullptr ? nullptr : cJSON_GetObjectItemCaseSensitive(city, "timezone");
+  const auto* timezone =
+      city == nullptr ? nullptr : cJSON_GetObjectItemCaseSensitive(city, "timezone");
   const auto* entries = cJSON_GetObjectItemCaseSensitive(root, "list");
   spring::network::WeatherSnapshot next{};
-  const auto timezone_seconds = cJSON_IsNumber(timezone) ? static_cast<std::int32_t>(timezone->valuedouble) : 0;
+  const auto timezone_seconds =
+      cJSON_IsNumber(timezone) ? static_cast<std::int32_t>(timezone->valuedouble) : 0;
   if (cJSON_IsArray(entries)) {
     const auto total = cJSON_GetArraySize(entries);
     for (int index{}; index < total && next.count < next.forecast.size(); ++index) {
       const auto* entry = cJSON_GetArrayItem(entries, index);
-      const auto* timestamp = entry == nullptr ? nullptr : cJSON_GetObjectItemCaseSensitive(entry, "dt");
-      const auto* main = entry == nullptr ? nullptr : cJSON_GetObjectItemCaseSensitive(entry, "main");
-      const auto* temperature = main == nullptr ? nullptr : cJSON_GetObjectItemCaseSensitive(main, "temp");
-      const auto* temperature_min = main == nullptr ? nullptr : cJSON_GetObjectItemCaseSensitive(main, "temp_min");
-      const auto* temperature_max = main == nullptr ? nullptr : cJSON_GetObjectItemCaseSensitive(main, "temp_max");
-      const auto* conditions = entry == nullptr ? nullptr : cJSON_GetObjectItemCaseSensitive(entry, "weather");
-      const auto* condition = cJSON_IsArray(conditions) ? cJSON_GetArrayItem(conditions, 0) : nullptr;
-      const auto* description = condition == nullptr ? nullptr : cJSON_GetObjectItemCaseSensitive(condition, "description");
-      if (!cJSON_IsNumber(timestamp) || !cJSON_IsNumber(temperature) || !cJSON_IsString(description)) continue;
+      const auto* timestamp =
+          entry == nullptr ? nullptr : cJSON_GetObjectItemCaseSensitive(entry, "dt");
+      const auto* main =
+          entry == nullptr ? nullptr : cJSON_GetObjectItemCaseSensitive(entry, "main");
+      const auto* temperature =
+          main == nullptr ? nullptr : cJSON_GetObjectItemCaseSensitive(main, "temp");
+      const auto* temperature_min =
+          main == nullptr ? nullptr : cJSON_GetObjectItemCaseSensitive(main, "temp_min");
+      const auto* temperature_max =
+          main == nullptr ? nullptr : cJSON_GetObjectItemCaseSensitive(main, "temp_max");
+      const auto* conditions =
+          entry == nullptr ? nullptr : cJSON_GetObjectItemCaseSensitive(entry, "weather");
+      const auto* condition =
+          cJSON_IsArray(conditions) ? cJSON_GetArrayItem(conditions, 0) : nullptr;
+      const auto* description = condition == nullptr
+                                    ? nullptr
+                                    : cJSON_GetObjectItemCaseSensitive(condition, "description");
+      if (!cJSON_IsNumber(timestamp) || !cJSON_IsNumber(temperature) ||
+          !cJSON_IsString(description))
+        continue;
       const auto utc_seconds = static_cast<std::time_t>(timestamp->valuedouble + timezone_seconds);
       std::tm local_time{};
-      if (gmtime_r(&utc_seconds, &local_time) == nullptr) continue;
+      if (gmtime_r(&utc_seconds, &local_time) == nullptr)
+        continue;
       auto& point = next.forecast[next.count++];
       point.hour = static_cast<std::uint8_t>(local_time.tm_hour);
       point.temperature_c = static_cast<std::int16_t>(std::lround(temperature->valuedouble));
-      point.temperature_low_c = cJSON_IsNumber(temperature_min)
-                                    ? static_cast<std::int16_t>(std::lround(temperature_min->valuedouble))
-                                    : point.temperature_c;
-      point.temperature_high_c = cJSON_IsNumber(temperature_max)
-                                     ? static_cast<std::int16_t>(std::lround(temperature_max->valuedouble))
-                                     : point.temperature_c;
-      std::strncpy(point.description.data(), description->valuestring, point.description.size() - 1);
+      point.temperature_low_c =
+          cJSON_IsNumber(temperature_min)
+              ? static_cast<std::int16_t>(std::lround(temperature_min->valuedouble))
+              : point.temperature_c;
+      point.temperature_high_c =
+          cJSON_IsNumber(temperature_max)
+              ? static_cast<std::int16_t>(std::lround(temperature_max->valuedouble))
+              : point.temperature_c;
+      std::strncpy(point.description.data(), description->valuestring,
+                   point.description.size() - 1);
       point.description.back() = '\0';
     }
   }
@@ -170,6 +206,19 @@ void update_weather() {
 }
 
 void cellular_task(void*) {
+  for (auto wait = 0; wait < 120 && !wifi_attempt_finished.load(); ++wait)
+    vTaskDelay(pdMS_TO_TICKS(500));
+  if (wifi_available.load()) {
+    ESP_LOGI(kTag, "Wi-Fi link available; cellular remains on standby");
+    update_weather();
+    while (true) {
+      vTaskDelay(pdMS_TO_TICKS(600'000));
+      if (wifi_available.load())
+        update_weather();
+      else
+        break;
+    }
+  }
   if (bring_up_cellular()) {
     (void)sync_clock_from_modem();
     (void)spring::location::refresh();
@@ -180,31 +229,65 @@ void cellular_task(void*) {
       update_weather();
     }
   }
+  install_fallback_weather();
   ESP_LOGW(kTag, "EC600X network unavailable; retry on next boot");
   vTaskDelete(nullptr);
 }
-}
+} // namespace
 
 void spring::network::start() {
   weather_lock = xSemaphoreCreateMutex();
   install_fallback_weather();
-  ESP_LOGI(kTag, "network service ready; EC600X is primary link");
+  ESP_LOGI(kTag, "network service ready; Wi-Fi -> cellular -> fake data");
   xTaskCreate(cellular_task, "cellular_net", 8192, nullptr, 4, nullptr);
 }
 
 void spring::network::set_link_available(Link link, bool available) {
-  if (link == Link::wifi) wifi_available.store(available);
-  if (link == Link::cellular) cellular_available.store(available);
+  if (link == Link::wifi)
+    wifi_available.store(available);
+  if (link == Link::cellular)
+    cellular_available.store(available);
 }
 
+void spring::network::mark_wifi_attempt_complete() { wifi_attempt_finished.store(true); }
+bool spring::network::wifi_attempt_complete() { return wifi_attempt_finished.load(); }
+
 spring::network::Link spring::network::active_link() {
-  if (cellular_available.load()) return Link::cellular;
-  if (wifi_available.load()) return Link::wifi;
+  if (wifi_available.load())
+    return Link::wifi;
+  if (cellular_available.load())
+    return Link::cellular;
   return Link::unavailable;
 }
 
 spring::network::Response spring::network::get(std::string_view url) {
-  if (url.empty() || active_link() == Link::unavailable) return {.status = -1};
+  if (url.empty() || active_link() == Link::unavailable)
+    return {.status = -1};
+  if (active_link() == Link::wifi) {
+    struct HttpContext {
+      std::string body;
+    } context;
+    const auto url_string = std::string{url};
+    esp_http_client_config_t config{};
+    config.url = url_string.c_str();
+    config.timeout_ms = 15'000;
+    config.event_handler = [](esp_http_client_event_t* event) {
+      auto* context = static_cast<HttpContext*>(event->user_data);
+      if (context == nullptr || event->event_id != HTTP_EVENT_ON_DATA || event->data == nullptr)
+        return ESP_OK;
+      context->body.append(static_cast<const char*>(event->data), event->data_len);
+      return ESP_OK;
+    };
+    config.user_data = &context;
+    config.crt_bundle_attach = esp_crt_bundle_attach;
+    auto* client = esp_http_client_init(&config);
+    if (client == nullptr)
+      return {.status = -1};
+    const auto result = esp_http_client_perform(client);
+    const auto status = result == ESP_OK ? esp_http_client_get_status_code(client) : -1;
+    esp_http_client_cleanup(client);
+    return {.status = status, .body = std::move(context.body)};
+  }
   if (active_link() == Link::cellular) {
     const auto response = spring::modem::http_get(url);
     return {.status = response.status, .body = response.body};
