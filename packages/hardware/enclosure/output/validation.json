@@ -62,7 +62,8 @@
     "devboard_boss_outer_af": 7.5,
     "devboard_boss_y": 50.8,
     "devboard_boss_height": 5.4,
-    "devboard_insert_depth": 5.0
+    "devboard_insert_depth": 5.0,
+    "devboard_reference_clearance": 0.2
   },
   "parts": [
     {
@@ -98,6 +99,7 @@
   ],
   "assembly": {
     "solid_intersection_mm3": 0.0,
+    "devboard_cover_intersection_mm3": 0.0,
     "front_insert_seat_material_mm3": [
       {
         "x": 8.0,
@@ -171,10 +173,10 @@
     ],
     "devboard_reference_bbox_mm": {
       "xmin": 18.0,
-      "ymin": 51.199999999999996,
+      "ymin": 48.99999999999999,
       "zmin": 5.0,
       "xmax": 103.0,
-      "ymax": 52.8,
+      "ymax": 50.599999999999994,
       "zmax": 61.0
     }
   },

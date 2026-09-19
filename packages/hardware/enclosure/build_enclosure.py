@@ -73,6 +73,8 @@ P = {
     "devboard_boss_y": 50.8,
     "devboard_boss_height": 5.4,
     "devboard_insert_depth": 5.0,
+    # Keep the board on the screen-facing side of the boss tip.
+    "devboard_reference_clearance": 0.2,
 }
 
 
@@ -346,6 +348,7 @@ def add_parameters(doc):
         ("DevboardBossY", P["devboard_boss_y"]),
         ("DevboardBossHeight", P["devboard_boss_height"]),
         ("DevboardInsertDepth", P["devboard_insert_depth"]),
+        ("DevboardReferenceClearance", P["devboard_reference_clearance"]),
     ]
     sheet.set("A1", "Parameter")
     sheet.set("B1", "Value")
@@ -450,13 +453,18 @@ def main():
 
     devboard_ref = doc.addObject("Part::Feature", "ESP32P4DevKitReference")
     devboard_ref.Label = "ESP32-P4-Module-DEV-KIT envelope (85 x 56 x 1.6 mm)"
+    devboard_ref_y = (
+        P["devboard_boss_y"]
+        - P["devboard_thickness"]
+        - P["devboard_reference_clearance"]
+    )
     devboard_ref.Shape = Part.makeBox(
         P["devboard_length"],
         P["devboard_thickness"],
         P["devboard_height"],
         App.Vector(
             P["devboard_x"],
-            P["devboard_boss_y"] + 0.4,
+            devboard_ref_y,
             P["devboard_z"],
         ),
     )
@@ -464,7 +472,11 @@ def main():
     add_property(devboard_ref, "MountingHolePitch", "58 x 49 mm")
     add_property(devboard_ref, "GPIOOrientation", "Toward display side")
     add_property(devboard_ref, "Interfaces", "Internal; no enclosure openings")
-    add_property(devboard_ref, "ReferencePlacement", "Behind display projection on rear cover")
+    add_property(
+        devboard_ref,
+        "ReferencePlacement",
+        "Behind display projection; 0.2 mm clearance from boss tips",
+    )
     references.addObject(devboard_ref)
 
     params.Visibility = False
@@ -487,6 +499,9 @@ def main():
         "parts": [shape_report("front_shell", front_shape), shape_report("back_cover", cover_shape)],
         "assembly": {
             "solid_intersection_mm3": float(front_shape.common(cover_shape).Volume),
+            "devboard_cover_intersection_mm3": float(
+                devboard_ref.Shape.common(cover_shape).Volume
+            ),
             "front_insert_seat_material_mm3": axis_clearance_report(
                 front_shape,
                 P["shell_depth"] - P["m2_standoff_length"],
@@ -522,10 +537,10 @@ def main():
             ],
             "devboard_reference_bbox_mm": {
                 "xmin": P["devboard_x"],
-                "ymin": P["devboard_boss_y"] + 0.4,
+                "ymin": devboard_ref_y,
                 "zmin": P["devboard_z"],
                 "xmax": P["devboard_x"] + P["devboard_length"],
-                "ymax": P["devboard_boss_y"] + 0.4 + P["devboard_thickness"],
+                "ymax": devboard_ref_y + P["devboard_thickness"],
                 "zmax": P["devboard_z"] + P["devboard_height"],
             },
         },
