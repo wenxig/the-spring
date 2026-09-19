@@ -63,7 +63,25 @@
     "devboard_boss_y": 50.8,
     "devboard_boss_height": 5.4,
     "devboard_insert_depth": 5.0,
-    "devboard_reference_clearance": 0.2
+    "devboard_reference_clearance": 0.2,
+    "ec600x_length": 85.0,
+    "ec600x_depth": 46.0,
+    "ec600x_corner_radius": 3.0,
+    "ec600x_x": 33.0,
+    "ec600x_y": 4.5,
+    "ec600x_floor_z": 3.0,
+    "ec600x_board_z": 9.6,
+    "ec600x_thickness": 1.6,
+    "ec600x_mount_hole_x": 53.5,
+    "ec600x_mount_hole_y": 9.0,
+    "ec600x_mount_hole_diameter": 2.4,
+    "ec600x_boss_outer_af": 7.5,
+    "ec600x_boss_height": 6.4,
+    "ec600x_insert_depth": 5.0,
+    "ec600x_l_stop_wall": 1.5,
+    "ec600x_l_stop_leg": 3.0,
+    "ec600x_l_stop_gap": 0.4,
+    "ec600x_l_stop_top_clearance": 0.4
   },
   "parts": [
     {
@@ -71,7 +89,7 @@
       "is_valid": true,
       "solids": 1,
       "shells": 1,
-      "volume_mm3": 89611.57184174647,
+      "volume_mm3": 89950.32722252618,
       "bbox_mm": {
         "xmin": 0.0,
         "ymin": 0.0,
@@ -100,6 +118,26 @@
   "assembly": {
     "solid_intersection_mm3": 0.0,
     "devboard_cover_intersection_mm3": 0.0,
+    "ec600x_front_intersection_mm3": 0.0,
+    "ec600x_mount_intersection_mm3": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "ec600x_reference_bbox_mm": {
+      "xmin": 33.0,
+      "ymin": 4.5,
+      "zmin": 9.6,
+      "xmax": 118.0,
+      "ymax": 50.5,
+      "zmax": 11.2
+    },
     "front_insert_seat_material_mm3": [
       {
         "x": 8.0,
@@ -114,7 +152,7 @@
       {
         "x": 122.0,
         "z": 8.0,
-        "remaining_material_mm3": 0.0
+        "remaining_material_mm3": 9.58514359814652
       },
       {
         "x": 122.0,

@@ -3,7 +3,12 @@
 #include <array>
 #include <cstdio>
 #include <cstring>
+#if !defined(CONFIG_SPRING_LVGL_DECLARATIVE_UI) || !CONFIG_SPRING_LVGL_DECLARATIVE_UI
 #include "cjk_font.inc"
+#define SPRING_LEGACY_CJK 1
+#else
+#define SPRING_LEGACY_CJK 0
+#endif
 #include "material_weather_icons.inc"
 
 namespace spring::ui {
@@ -104,6 +109,7 @@ void Frame::text_utf8(std::uint16_t x, std::uint16_t y, const char* value) {
       if (cursor < kWidth) text(cursor, y, ascii);
       cursor = static_cast<std::uint16_t>(cursor + 6);
     } else {
+#if SPRING_LEGACY_CJK
       const auto* begin = std::begin(detail::cjk_codepoints);
       const auto* end = std::end(detail::cjk_codepoints);
       const auto* found = std::find(begin, end, codepoint.value);
@@ -122,8 +128,11 @@ void Frame::text_utf8(std::uint16_t x, std::uint16_t y, const char* value) {
                    (0x80U >> (source_column % 8))) != 0)
                 pixel(cursor + dx, y + dy);
             }
-        }
+            }
       }
+#else
+      if (cursor <= kWidth - 16) box({cursor, y, 16, 16});
+#endif
       cursor = static_cast<std::uint16_t>(cursor + 18);
     }
     offset += codepoint.width;
@@ -142,6 +151,7 @@ void Frame::text_utf8_sized(std::uint16_t x, std::uint16_t y, const char* value,
       if (size == 16) text(cursor, y, ascii);
       cursor = static_cast<std::uint16_t>(cursor + (size == 16 ? 6 : size));
     } else {
+#if SPRING_LEGACY_CJK
       const auto* begin = std::begin(detail::cjk_codepoints);
       const auto* end = std::end(detail::cjk_codepoints);
       const auto* found = std::find(begin, end, codepoint.value);
@@ -161,6 +171,9 @@ void Frame::text_utf8_sized(std::uint16_t x, std::uint16_t y, const char* value,
               pixel(static_cast<std::uint16_t>(cursor + column), static_cast<std::uint16_t>(y + row));
           }
       }
+#else
+      if (cursor <= kWidth - size) box({cursor, y, size, size});
+#endif
       cursor = static_cast<std::uint16_t>(cursor + size + 2);
     }
     offset += codepoint.width;
@@ -181,6 +194,7 @@ void Frame::text_utf8_vertical_sized(std::uint16_t x, std::uint16_t y, const cha
         for (std::uint16_t column{}; column < 2 && line_x + column < kWidth; ++column)
           pixel(static_cast<std::uint16_t>(line_x + column), static_cast<std::uint16_t>(cursor + row));
     } else if (codepoint.value >= 0x80U) {
+#if SPRING_LEGACY_CJK
       const auto* begin = std::begin(detail::cjk_codepoints);
       const auto* end = std::end(detail::cjk_codepoints);
       const auto* found = std::find(begin, end, codepoint.value);
@@ -198,6 +212,9 @@ void Frame::text_utf8_vertical_sized(std::uint16_t x, std::uint16_t y, const cha
               pixel(static_cast<std::uint16_t>(x + column), static_cast<std::uint16_t>(cursor + row));
           }
       }
+#else
+      if (x <= kWidth - size && cursor <= kHeight - size) box({x, cursor, size, size});
+#endif
     }
     cursor = static_cast<std::uint16_t>(cursor + size + gap);
     offset += codepoint.width;

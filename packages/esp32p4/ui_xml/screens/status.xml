@@ -1,6 +1,5 @@
-<screen name="status">
-  <view width="#screen_width" height="#screen_height" layout="column" pad="20">
-    <lv_label name="title" />
-    <lv_label name="state" />
-  </view>
+<screen name="Status">
+  <lv_label x="24" y="24" width="352" height="34" font_size="24" bind="route.title" />
+  <lv_obj x="24" y="72" width="352" height="1" />
+  <lv_label x="24" y="100" width="352" height="150" font_size="20" bind="route.state" />
 </screen>

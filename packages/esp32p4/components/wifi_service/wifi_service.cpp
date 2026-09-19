@@ -138,7 +138,7 @@ void wifi_task(void*) {
     vTaskDelete(nullptr);
     return;
   }
-  if (esp_hosted_init() != ESP_OK || esp_hosted_connect_to_slave() != ESP_OK) {
+  if (!spring::wifi::prepare_transport()) {
     ESP_LOGE(kTag, "ESP-Hosted C6 transport unavailable");
     spring::network::mark_wifi_attempt_complete();
     vTaskDelete(nullptr);
@@ -180,6 +180,10 @@ void wifi_task(void*) {
   vTaskDelete(nullptr);
 }
 } // namespace
+
+bool spring::wifi::prepare_transport() {
+  return esp_hosted_init() == ESP_OK && esp_hosted_connect_to_slave() == ESP_OK;
+}
 
 void spring::wifi::start() {
   wifi_events = xEventGroupCreate();

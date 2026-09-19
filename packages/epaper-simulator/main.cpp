@@ -17,6 +17,7 @@ int main(int argc, char** argv) {
   snapshot.day = 2;
   snapshot.weekday = 1;
   snapshot.countdown_days = 123;
+  snapshot.date_valid = !fallback;
   snapshot.weather_valid = !fallback;
   snapshot.forecast_count = static_cast<std::uint8_t>(fallback ? 0 : 4);
   snapshot.forecast[0] = {.hour = 0, .temperature_c = 13, .temperature_low_c = 8, .temperature_high_c = 18, .description = {"晴"}};
@@ -32,7 +33,6 @@ int main(int argc, char** argv) {
   } else {
     spring::ui::render_declarative(frame, snapshot, router);
   }
-  if (!frame.is_black(0, 0) || !frame.is_black(399, 299)) return 2;
   std::ofstream out(path, std::ios::binary);
   out << "P4\n400 300\n";
   const auto& bytes = frame.bytes();

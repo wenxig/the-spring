@@ -75,6 +75,27 @@ P = {
     "devboard_insert_depth": 5.0,
     # Keep the board on the screen-facing side of the boss tip.
     "devboard_reference_clearance": 0.2,
+    # EC600X-EVB silkscreen reference. Dimensions are scaled from the 2.54 mm
+    # header pitch in the supplied PDF; the board is rotated 180 degrees so
+    # the USB-C edge faces the button side (+X).
+    "ec600x_length": 85.0,
+    "ec600x_depth": 46.0,
+    "ec600x_corner_radius": 3.0,
+    "ec600x_x": 33.0,
+    "ec600x_y": 4.5,
+    "ec600x_floor_z": 3.0,
+    "ec600x_board_z": 9.6,
+    "ec600x_thickness": 1.6,
+    "ec600x_mount_hole_x": 53.5,
+    "ec600x_mount_hole_y": 9.0,
+    "ec600x_mount_hole_diameter": 2.4,
+    "ec600x_boss_outer_af": 7.5,
+    "ec600x_boss_height": 6.4,
+    "ec600x_insert_depth": 5.0,
+    "ec600x_l_stop_wall": 1.5,
+    "ec600x_l_stop_leg": 3.0,
+    "ec600x_l_stop_gap": 0.4,
+    "ec600x_l_stop_top_clearance": 0.4,
 }
 
 
@@ -95,6 +116,22 @@ def rounded_prism_xz(x0, z0, width, height, depth, y0, radius):
             )
     result = shapes[0].multiFuse(shapes[1:])
     return result.removeSplitter()
+
+
+def rounded_prism_xy(x0, y0, width, depth, height, z0, radius):
+    """A rounded rectangle in the XY plane extruded along +Z."""
+    if radius <= 0 or 2 * radius >= min(width, depth):
+        raise ValueError("rounded rectangle radius is too large")
+    shapes = [
+        Part.makeBox(width - 2 * radius, depth, height, App.Vector(x0 + radius, y0, z0)),
+        Part.makeBox(width, depth - 2 * radius, height, App.Vector(x0, y0 + radius, z0)),
+    ]
+    for cx in (x0 + radius, x0 + width - radius):
+        for cy in (y0 + radius, y0 + depth - radius):
+            shapes.append(
+                Part.makeCylinder(radius, height, App.Vector(cx, cy, z0), App.Vector(0, 0, 1))
+            )
+    return shapes[0].multiFuse(shapes[1:]).removeSplitter()
 
 
 def screw_cylinder(x, z, y0, depth, radius):
@@ -118,6 +155,51 @@ def hex_prism_xz(x, z, y0, depth, across_flats, rotation_degrees=30.0):
     points.append(points[0])
     wire = Part.makePolygon(points)
     return Part.Face(wire).extrude(App.Vector(0, depth, 0))
+
+
+def hex_prism_xy(x, y, z0, height, across_flats, rotation_degrees=30.0):
+    """Regular hexagonal prism in the XY plane, extruded along +Z."""
+    import math
+
+    circumradius = across_flats / math.sqrt(3.0)
+    angle = math.radians(rotation_degrees)
+    points = [
+        App.Vector(
+            x + circumradius * math.cos(angle + index * math.pi / 3.0),
+            y + circumradius * math.sin(angle + index * math.pi / 3.0),
+            z0,
+        )
+        for index in range(6)
+    ]
+    points.append(points[0])
+    wire = Part.makePolygon(points)
+    return Part.Face(wire).extrude(App.Vector(0, 0, height))
+
+
+def make_ec600x_mounts():
+    """Build one EC600X M2 insert seat and four corner L-shaped stops."""
+    x0, y0 = P["ec600x_x"], P["ec600x_y"]
+    x1, y1 = x0 + P["ec600x_length"], y0 + P["ec600x_depth"]
+    z0 = P["ec600x_floor_z"]
+    top = P["ec600x_board_z"] + P["ec600x_thickness"] + P["ec600x_l_stop_top_clearance"]
+    height = top - z0
+    wall, leg, gap = P["ec600x_l_stop_wall"], P["ec600x_l_stop_leg"], P["ec600x_l_stop_gap"]
+    supports = []
+    for left in (True, False):
+        for front in (True, False):
+            side_x = x0 - gap - wall if left else x1 + gap
+            edge_y = y0 - gap - wall if front else y1 + gap
+            x_leg = x0 - gap - leg if left else x1 + gap
+            y_leg = y0 - gap - leg if front else y1 + gap - leg
+            supports.append(Part.makeBox(leg, wall, height, App.Vector(x_leg, edge_y, z0)))
+            supports.append(Part.makeBox(wall, leg, height, App.Vector(side_x, y_leg, z0)))
+
+    hole_x, hole_y = x0 + P["ec600x_mount_hole_x"], y0 + P["ec600x_mount_hole_y"]
+    boss = hex_prism_xy(hole_x, hole_y, z0, P["ec600x_boss_height"], P["ec600x_boss_outer_af"])
+    pocket_start = z0 + P["ec600x_boss_height"] - P["ec600x_insert_depth"]
+    boss = boss.cut(hex_prism_xy(hole_x, hole_y, pocket_start, P["ec600x_insert_depth"] + 0.1, P["m2_hex_pocket_af"]))
+    boss = boss.cut(Part.makeCylinder(P["ec600x_mount_hole_diameter"] / 2.0, P["ec600x_boss_height"] + 0.2, App.Vector(hole_x, hole_y, z0 - 0.1), App.Vector(0, 0, 1)))
+    return supports, boss
 
 
 def make_front_shell():
@@ -197,6 +279,8 @@ def make_front_shell():
                     P["m2_hex_lead_in_af"],
                 )
             )
+    ec_stops, ec_boss = make_ec600x_mounts()
+    shell = shell.fuse(ec_stops + [ec_boss]).removeSplitter()
     return shell.removeSplitter()
 
 
@@ -349,6 +433,19 @@ def add_parameters(doc):
         ("DevboardBossHeight", P["devboard_boss_height"]),
         ("DevboardInsertDepth", P["devboard_insert_depth"]),
         ("DevboardReferenceClearance", P["devboard_reference_clearance"]),
+        ("EC600XLength", P["ec600x_length"]),
+        ("EC600XDepth", P["ec600x_depth"]),
+        ("EC600XX", P["ec600x_x"]),
+        ("EC600XY", P["ec600x_y"]),
+        ("EC600XBoardZ", P["ec600x_board_z"]),
+        ("EC600XMountHoleX", P["ec600x_mount_hole_x"]),
+        ("EC600XMountHoleY", P["ec600x_mount_hole_y"]),
+        ("EC600XBossAcrossFlats", P["ec600x_boss_outer_af"]),
+        ("EC600XBossHeight", P["ec600x_boss_height"]),
+        ("EC600XInsertDepth", P["ec600x_insert_depth"]),
+        ("EC600XLStopWall", P["ec600x_l_stop_wall"]),
+        ("EC600XLStopLeg", P["ec600x_l_stop_leg"]),
+        ("EC600XLStopGap", P["ec600x_l_stop_gap"]),
     ]
     sheet.set("A1", "Parameter")
     sheet.set("B1", "Value")
@@ -430,6 +527,8 @@ def main():
     add_property(front, "Window", "84.8 x 63.6 mm display area, R5.5")
     add_property(front, "WallThickness", "4 mm")
     add_property(front, "PrintOrientation", "Front face down; rotate +90 deg about X")
+    add_property(front, "EC600XMount", "4 x L-shaped stops + 1 x hex M2 insert seat")
+    add_property(front, "EC600XPlacement", "85 x 46 x 1.6 mm reference; USB-C toward +X button side")
     assembly.addObject(front)
 
     cover = doc.addObject("PartDesign::Feature", "BackCover")
@@ -479,6 +578,25 @@ def main():
     )
     references.addObject(devboard_ref)
 
+    ec600x_ref = doc.addObject("Part::Feature", "EC600XEVBReference")
+    ec600x_ref.Label = "EC600X-EVB envelope (85 x 46 x 1.6 mm; USB-C +X)"
+    ec600x_ref.Shape = rounded_prism_xy(
+        P["ec600x_x"],
+        P["ec600x_y"],
+        P["ec600x_length"],
+        P["ec600x_depth"],
+        P["ec600x_thickness"],
+        P["ec600x_board_z"],
+        P["ec600x_corner_radius"],
+    )
+    add_property(ec600x_ref, "Source", "User-provided EC600X系列开发板丝印.pdf; size scaled from 2.54 mm header pitch")
+    add_property(ec600x_ref, "BoardSize", "85 x 46 x 1.6 mm estimated")
+    add_property(ec600x_ref, "MountingHole", "Single M2 hole beside QuecPython marking")
+    add_property(ec600x_ref, "MountingHolePosition", "Rotated placement: X=86.5 mm, Y=15.0 mm")
+    add_property(ec600x_ref, "USBOrientation", "USB-C toward +X button side")
+    add_property(ec600x_ref, "InterfacePolicy", "Internal; no enclosure openings")
+    references.addObject(ec600x_ref)
+
     params.Visibility = False
     references.Visibility = False
     doc.recompute()
@@ -502,6 +620,21 @@ def main():
             "devboard_cover_intersection_mm3": float(
                 devboard_ref.Shape.common(cover_shape).Volume
             ),
+            "ec600x_front_intersection_mm3": float(
+                ec600x_ref.Shape.common(front_shape).Volume
+            ),
+            "ec600x_mount_intersection_mm3": [
+                float(ec600x_ref.Shape.common(shape).Volume)
+                for shape in make_ec600x_mounts()[0] + [make_ec600x_mounts()[1]]
+            ],
+            "ec600x_reference_bbox_mm": {
+                "xmin": P["ec600x_x"],
+                "ymin": P["ec600x_y"],
+                "zmin": P["ec600x_board_z"],
+                "xmax": P["ec600x_x"] + P["ec600x_length"],
+                "ymax": P["ec600x_y"] + P["ec600x_depth"],
+                "zmax": P["ec600x_board_z"] + P["ec600x_thickness"],
+            },
             "front_insert_seat_material_mm3": axis_clearance_report(
                 front_shape,
                 P["shell_depth"] - P["m2_standoff_length"],

@@ -1,0 +1,10 @@
+<component name="DatePanel">
+  <lv_image x="0" y="16" width="18" height="18" bind="location.icon" />
+  <lv_label x="22" y="14" width="101" height="24" font_size="14" bind="snapshot.location" />
+  <lv_label x="20" y="48" width="100" height="26" font_size="18" bind="snapshot.weekday" />
+  <lv_obj x="20" y="81" width="17" height="1" />
+  <lv_label x="20" y="93" width="100" height="24" font_size="16" bind="snapshot.year" />
+  <lv_label x="7" y="117" width="110" height="40" font_size="32" align="center" bind="snapshot.date" />
+  <lv_label x="22" y="156" width="36" height="22" font_size="14" text="月" />
+  <lv_label x="76" y="156" width="36" height="22" font_size="14" text="日" />
+</component>

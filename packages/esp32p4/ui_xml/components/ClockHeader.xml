@@ -1,0 +1,7 @@
+<component name="ClockHeader">
+  <lv_label x="28" y="16" width="48" height="26" font_size="18" bind="snapshot.period" />
+  <lv_label x="28" y="40" width="224" height="68" font_size="64" align="center" bind="snapshot.time" />
+  <lv_obj x="28" y="154" width="22" height="1" />
+  <lv_label x="52" y="144" width="174" height="26" font_size="16" align="center" bind="snapshot.countdown" />
+  <lv_obj x="230" y="154" width="22" height="1" />
+</component>

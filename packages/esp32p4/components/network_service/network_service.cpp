@@ -13,6 +13,7 @@
 #include "sdkconfig.h"
 
 #include <atomic>
+#include <array>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -31,9 +32,22 @@ SemaphoreHandle_t weather_lock = nullptr;
 
 void install_fallback_weather() {
   spring::network::WeatherSnapshot fallback{};
-  fallback.valid = false;
+  fallback.valid = true;
   fallback.fake_data = true;
-  fallback.count = 0;
+  fallback.count = static_cast<std::uint8_t>(fallback.forecast.size());
+  constexpr std::array<std::uint8_t, spring::network::kForecastSlots> hours{9, 12, 15, 18};
+  constexpr std::array<std::int16_t, spring::network::kForecastSlots> temperatures{22, 25, 24, 20};
+  constexpr std::array<std::int16_t, spring::network::kForecastSlots> lows{20, 22, 22, 18};
+  constexpr std::array<std::int16_t, spring::network::kForecastSlots> highs{24, 27, 26, 22};
+  for (std::size_t index{}; index < fallback.forecast.size(); ++index) {
+    auto& point = fallback.forecast[index];
+    point.hour = hours[index];
+    point.temperature_c = temperatures[index];
+    point.temperature_low_c = lows[index];
+    point.temperature_high_c = highs[index];
+    std::strncpy(point.description.data(), "晴", point.description.size() - 1);
+    point.description.back() = '\0';
+  }
   fallback.revision = weather_state.revision + 1;
   if (weather_lock == nullptr || xSemaphoreTake(weather_lock, pdMS_TO_TICKS(100)) == pdTRUE) {
     weather_state = fallback;
@@ -126,19 +140,36 @@ bool bring_up_cellular() {
 void update_weather() {
 #ifdef CONFIG_SPRING_OPENWEATHER_API_KEY
   const auto location = spring::modem::snapshot();
-  if (!location.location_valid || CONFIG_SPRING_OPENWEATHER_API_KEY[0] == '\0')
+  if (CONFIG_SPRING_OPENWEATHER_API_KEY[0] == '\0') {
+    ESP_LOGW(kTag, "weather update skipped: OpenWeather API key is empty");
+    install_fallback_weather();
     return;
+  }
+  if (!location.location_valid) {
+    ESP_LOGW(kTag, "weather update skipped: location is unavailable");
+    install_fallback_weather();
+    return;
+  }
   char url[384]{};
   std::snprintf(url, sizeof(url),
                 "https://api.openweathermap.org/data/2.5/"
                 "forecast?lat=%.6f&lon=%.6f&appid=%s&units=metric&lang=zh_cn",
                 location.latitude, location.longitude, CONFIG_SPRING_OPENWEATHER_API_KEY);
   const auto response = spring::network::get(url);
-  if (response.status != 200)
+  ESP_LOGI(kTag, "weather request link=%d lat=%.5f lon=%.5f status=%d bytes=%u",
+           static_cast<int>(spring::network::active_link()), location.latitude, location.longitude,
+           response.status, static_cast<unsigned>(response.body.size()));
+  if (response.status != 200) {
+    ESP_LOGW(kTag, "weather request failed: HTTP status=%d", response.status);
+    install_fallback_weather();
     return;
+  }
   auto* root = cJSON_Parse(response.body.c_str());
-  if (root == nullptr)
+  if (root == nullptr) {
+    ESP_LOGW(kTag, "weather response JSON parse failed");
+    install_fallback_weather();
     return;
+  }
   const auto* city = cJSON_GetObjectItemCaseSensitive(root, "city");
   const auto* timezone =
       city == nullptr ? nullptr : cJSON_GetObjectItemCaseSensitive(city, "timezone");
@@ -200,6 +231,10 @@ void update_weather() {
       next.revision = weather_state.revision + 1;
       weather_state = next;
     }
+    ESP_LOGI(kTag, "weather updated: forecast_count=%u", next.count);
+  } else {
+    ESP_LOGW(kTag, "weather response contained no usable forecast entries");
+    install_fallback_weather();
   }
   cJSON_Delete(root);
 #endif
@@ -210,13 +245,18 @@ void cellular_task(void*) {
     vTaskDelay(pdMS_TO_TICKS(500));
   if (wifi_available.load()) {
     ESP_LOGI(kTag, "Wi-Fi link available; cellular remains on standby");
+    if (!spring::modem::snapshot().location_valid)
+      (void)spring::location::refresh();
     update_weather();
     while (true) {
       vTaskDelay(pdMS_TO_TICKS(600'000));
-      if (wifi_available.load())
+      if (wifi_available.load()) {
+        if (!spring::modem::snapshot().location_valid)
+          (void)spring::location::refresh();
         update_weather();
-      else
+      } else {
         break;
+      }
     }
   }
   if (bring_up_cellular()) {

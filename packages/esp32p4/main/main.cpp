@@ -76,7 +76,12 @@ extern "C" void app_main() {
   spring::display::start(spring::display::Backend::epaper);
 #endif
   spring::modem::start();
-  spring::storage::mount_sdcard();
+  if (spring::wifi::prepare_transport()) {
+    spring::storage::mount_sdcard();
+  } else {
+    ESP_LOGE(kTag, "Shared SDMMC controller unavailable; SD card mount skipped");
+  }
+  spring::storage::ui_assets_ready();
   spring::wifi::start();
   spring::network::start();
   spring::power::start();

@@ -74,11 +74,11 @@ SDI 表示屏幕数据输入，接 ESP MOSI。使用 SPI2、四线 SPI 写入模
 
 ```mermaid
 flowchart LR
-  U1[USB 电源 A] --> P[ESP32-P4]
-  U2[USB 电源 B] --> E[EC600X-EVB]
-  P -->|TX / RX / GND 三线| E
+  U1[USB 电源] --> P[ESP32-P4]
+  E[EC600X-EVB]
+  P -->|USB Host 信号 + 电源| E
   P -->|3.3V / GND + 六路信号| Q[QYE 驱动板与屏幕]
-  B[8PB 八键板] -->|八路输入 + GND| P
+  P -->|八路输入 + GND| B[8PB 八键板]
 ```
 
 ESP 使用 Type-C UART 口供电及调试；EC 使用自身 USB 口，电源开关置于 USB 挡。建议使用质量可靠、单路额定 5V/2A 或以上的 USB 电源与短线，ESP 同时接入大功率外设时按总负载增加容量。该额定值为工程起点，最终供电能力以蜂窝发射和屏幕刷新同时运行时的测量为准。USB 电源 A/B 可来自有足够独立端口供电能力的同一适配器。

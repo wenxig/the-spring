@@ -1,5 +1,7 @@
 # the-spring 四月天
 
+> 在没有明确说明的语境下，默认为嵌入式环境
+
 ## Using Vite+, the Unified Toolchain for the Web
 
 This project is using Vite+, a unified toolchain built on top of Vite, Rolldown, Vitest, tsdown, Oxlint, Oxfmt, and Vite Task. Vite+ wraps runtime management, package management, and frontend tooling in a single global CLI called `vp`. Vite+ is distinct from Vite, and it invokes Vite through `vp dev` and `vp build`. Run `vp help` to print a list of commands and `vp <command> --help` for information about a specific command.
@@ -14,6 +16,8 @@ Docs are local at `node_modules/vite-plus/docs` or online at <https://viteplus.d
 - [ ] Python 模块检查：在对应子包运行 `uv run --with ruff ruff check .` 与 `uv run --with pytest pytest`，或执行子包内定义之 `check` / `test` 脚本。
 - [ ] C++ 模块检查：全链路采用 clang / cpp26 标准；执行 `clang-tidy`、`clang-format --dry-run --Werror` 及对应 CMake / CTest 目标完成静态检查与单测。
 - [ ] If setup, runtime, or package-manager behavior looks wrong, run `vp env doctor` and include its output when asking for help.
+- [ ] UI修改需要用仿真器做视觉验证
+- [ ] 程序修改需要烧录验证
 
 ### Notice
 
@@ -83,19 +87,7 @@ In cloud environments, use `pnpm exec vp`.
 
 ### ESP32-P4 与 EC600X-EVB 物理连接
 
-主控使用 UART1 映射至 GPIO0/GPIO1，连接 EC 的 UART0 主串口。ESP 排针按元件面、排针在右、C6 UART 在上方的方向定位：
-
-| ESP32-P4（40-Pin） | EC600X-EVB（J5） | 信号 |
-| --- | --- | --- |
-| P6-24 / 第 12 行左 / GPIO0（UART TX） | J5 Pin 7 / RX0 | ESP32 发送，EC600MCNLE 接收 |
-| P6-21 / 第 11 行右 / GPIO1（UART RX） | J5 Pin 6 / TX0 | EC600MCNLE 发送，ESP32 接收 |
-| P6-26 / 第 13 行左 / GND | J5 Pin 1、2 或 18 / GND | 公共信号地 |
-
-两块开发板分别使用各自的 USB 供电，连接 UART 前先确认 EC600X-EVB 电源开关处于 USB 挡。J5 的 UART 信号经过 EVB 电平转换器并位于 3.3V 侧，可与 ESP32-P4 GPIO0/GPIO1 连接；J6 Pin 3（1.8V VDD_EXT）和 J6 Pin 18（约 3.8V VBAT）不得接入 ESP32 GPIO 或 3.3V 电源。不要把 EC600X-EVB 的 J6 Pin 1 5V 直接并接到 ESP32-P4 的 3V3_OUT。
-
-PWRKEY、RESET_N、MAIN_RI 没有引出到 EC600X-EVB 的 J5/J6，首版连接通过板载 PWRKEY 和 RESET 按键完成开关机与复位。需要主控自动控制时，再按 EC600MCNLE 硬件手册增加晶体管或开漏下拉电路，并为 MAIN_RI 增加电平匹配输入；禁止把这些模组侧信号直接接到 ESP32 GPIO。
-
-连接完成后的最小验证顺序是：ESP32 UART 发送 `AT`，等待 `OK`；查询 `AT+CPIN?`、`AT+CEREG?`、`AT+CSQ`，再执行数据拨号和 VoLTE 状态流程。USB 线仅用于分别烧录和日志查看，开发板之间的业务通信使用上述 UART 线。
+使用USB连接，esp32作为host，连接至EC600MCNLE的at命令端口
 
 ### VoLTE 与 PCM 音频
 
