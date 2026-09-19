@@ -18,7 +18,7 @@
 - 生成 FCStd、STEP 和分件 STL
 
 ### Phase 3: 几何验证与交付文档
-**Status:** in_progress
+**Status:** complete
 
 - 检查实体有效性、单实体、包围盒与 STL 封闭性
 - 写装配与打印说明
@@ -33,7 +33,7 @@
 - 未给出内部元件与接口尺寸，因此暂不添加接口开孔；参数和脚本可继续修改。
 
 ## Next Step
-确认是否允许扩大外壳到约 180 × 60 × 86 mm，或选择其他布局后再重建模型。
+等待用户实装后提供屏幕安装高度、接口位置和按键板孔位，以便继续细化。
 
 ## Errors Encountered
 | Error | Attempt | Resolution |

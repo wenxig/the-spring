@@ -25,11 +25,20 @@ P = {
     "wall": 4.0,
     "outer_radius": 8.0,
     "inner_radius": 4.0,
-    "window_x": 14.0,
-    "window_z": 16.0,
-    "window_length": 102.0,
-    "window_height": 38.0,
-    "window_radius": 6.0,
+    "window_z": 3.2,
+    "window_length": 84.8,
+    "window_height": 63.6,
+    "window_radius": 5.5,
+    "window_x": 4.0,
+    "button_window_x": 91.0,
+    "button_window_z": 6.0,
+    "button_window_size": 35.0,
+    "button_window_radius": 4.0,
+    "divider_x": 88.8,
+    "divider_width": 2.2,
+    "screen_outer_length": 91.0,
+    "screen_outer_height": 77.0,
+    "screen_outer_thickness": 1.2,
     "boss_radius": 5.0,
     "screw_clearance": 3.4,
     "boss_start_y": 48.0,
@@ -100,6 +109,26 @@ def make_front_shell():
         P["window_radius"],
     )
     shell = shell.cut(window)
+
+    button_window = rounded_prism_xz(
+        P["button_window_x"],
+        P["button_window_z"],
+        P["button_window_size"],
+        P["button_window_size"],
+        P["wall"] + 2.0,
+        -1.0,
+        P["button_window_radius"],
+    )
+    shell = shell.cut(button_window)
+
+    # Vertical internal separator: screen on the left, 35 mm button module at lower right.
+    divider = Part.makeBox(
+        P["divider_width"],
+        P["outer_depth"] - P["wall"] - 3.8,
+        P["outer_height"] - 2 * P["wall"],
+        App.Vector(P["divider_x"], P["wall"] - 0.2, P["wall"]),
+    )
+    shell = shell.fuse(divider).removeSplitter()
 
     bosses = []
     for x in P["boss_x"]:
@@ -187,6 +216,11 @@ def add_parameters(doc):
         ("ScrewClearance", P["screw_clearance"]),
         ("CoverThickness", P["cover_thickness"]),
         ("CoverLipClearance", P["cover_lip_clearance"]),
+        ("ScreenOuterLength", P["screen_outer_length"]),
+        ("ScreenOuterHeight", P["screen_outer_height"]),
+        ("ButtonMaxSize", P["button_window_size"]),
+        ("DividerX", P["divider_x"]),
+        ("DividerWidth", P["divider_width"]),
     ]
     sheet.set("A1", "Parameter")
     sheet.set("B1", "Value")
@@ -250,7 +284,7 @@ def main():
     front.Label = "Front shell (printable)"
     front.Shape = front_shape
     add_property(front, "OverallSize", "130 x 60 x 70 mm")
-    add_property(front, "Window", "102 x 38 mm, R6")
+    add_property(front, "Window", "84.8 x 63.6 mm display area, R5.5")
     add_property(front, "WallThickness", "4 mm")
     add_property(front, "PrintOrientation", "Front face down; rotate +90 deg about X")
     assembly.addObject(front)
@@ -263,7 +297,35 @@ def main():
     add_property(cover, "PrintOrientation", "Flat face down; rotate +90 deg about X")
     assembly.addObject(cover)
 
+    references = doc.addObject("App::Part", "ComponentReferences")
+    references.Label = "Component references (non-printing)"
+
+    screen_ref = doc.addObject("Part::Feature", "ScreenReference")
+    screen_ref.Label = "QYEG0420BNS830 outer envelope (91 x 77 x 1.2 mm)"
+    screen_ref.Shape = Part.makeBox(
+        P["screen_outer_length"],
+        P["screen_outer_thickness"],
+        P["screen_outer_height"],
+        App.Vector(1.5, P["wall"] + 1.0, (P["outer_height"] - P["screen_outer_height"]) / 2.0),
+    )
+    add_property(screen_ref, "Source", "QYEG0420BNS830 product page: 91 x 77 x 1.2 mm")
+    add_property(screen_ref, "ReferencePlacement", "Left side; centered vertically, reference only")
+    references.addObject(screen_ref)
+
+    button_ref = doc.addObject("Part::Feature", "PushButtonReference")
+    button_ref.Label = "8 Push Buttons V1.02 max envelope (35 x 35 mm)"
+    button_ref.Shape = Part.makeBox(
+        P["button_window_size"],
+        10.0,
+        P["button_window_size"],
+        App.Vector(P["button_window_x"], P["wall"] + 1.0, P["button_window_z"]),
+    )
+    add_property(button_ref, "Source", "User measured maximum outside dimension: 35 mm")
+    add_property(button_ref, "ReferencePlacement", "Right lower compartment")
+    references.addObject(button_ref)
+
     params.Visibility = False
+    references.Visibility = False
     doc.recompute()
 
     fcstd = OUT / "enclosure_130x60x70.FCStd"
