@@ -18,26 +18,28 @@
     "button_window_radius": 4.0,
     "divider_x": 88.8,
     "divider_width": 2.2,
-    "divider_rear_clearance": 0.4,
+    "divider_rear_clearance": 4.2,
     "screen_outer_length": 91.0,
     "screen_outer_height": 77.0,
     "screen_outer_thickness": 1.2,
-    "boss_radius": 4.0,
+    "boss_outer_af": 8.0,
+    "boss_clearance_af": 8.8,
     "m2_clearance": 2.4,
-    "insert_outer_diameter": 3.2,
-    "insert_pilot_diameter": 3.0,
-    "insert_depth": 4.0,
-    "insert_lead_in_depth": 0.6,
+    "m2_standoff_af": 4.5,
+    "m2_hex_pocket_af": 5.0,
+    "m2_hex_lead_in_af": 5.4,
+    "m2_standoff_length": 5.0,
+    "m2_hex_lead_in_depth": 0.6,
     "m2_screw_length": 6.0,
     "boss_start_y": 44.0,
     "boss_length": 12.0,
     "boss_x": [
-      6.0,
-      124.0
+      8.0,
+      122.0
     ],
     "boss_z": [
-      6.0,
-      64.0
+      8.0,
+      62.0
     ],
     "cover_y": 56.0,
     "cover_thickness": 4.0,
@@ -50,8 +52,8 @@
     "devboard_length": 85.0,
     "devboard_height": 56.0,
     "devboard_thickness": 1.6,
-    "devboard_x": 10.0,
-    "devboard_z": 10.0,
+    "devboard_x": 18.0,
+    "devboard_z": 5.0,
     "devboard_hole_x": [
       4.5,
       62.5
@@ -60,10 +62,10 @@
       3.5,
       52.5
     ],
-    "devboard_boss_radius": 3.5,
-    "devboard_boss_y": 53.8,
-    "devboard_boss_height": 2.4,
-    "devboard_insert_depth": 4.0
+    "devboard_boss_outer_af": 7.5,
+    "devboard_boss_y": 50.8,
+    "devboard_boss_height": 5.4,
+    "devboard_insert_depth": 5.0
   },
   "parts": [
     {
@@ -71,7 +73,7 @@
       "is_valid": true,
       "solids": 1,
       "shells": 1,
-      "volume_mm3": 95485.69465827104,
+      "volume_mm3": 95858.6918417467,
       "bbox_mm": {
         "xmin": 0.0,
         "ymin": 0.0,
@@ -86,10 +88,10 @@
       "is_valid": true,
       "solids": 1,
       "shells": 1,
-      "volume_mm3": 40088.91478301213,
+      "volume_mm3": 40172.28036145705,
       "bbox_mm": {
         "xmin": 0.5,
-        "ymin": 53.8,
+        "ymin": 50.8,
         "zmin": 0.5,
         "xmax": 129.5,
         "ymax": 60.00000000000001,
@@ -101,82 +103,82 @@
     "solid_intersection_mm3": 0.0,
     "front_insert_seat_material_mm3": [
       {
-        "x": 6.0,
-        "z": 6.0,
+        "x": 8.0,
+        "z": 8.0,
         "remaining_material_mm3": 0.0
       },
       {
-        "x": 6.0,
-        "z": 64.0,
+        "x": 8.0,
+        "z": 62.0,
         "remaining_material_mm3": 0.0
       },
       {
-        "x": 124.0,
-        "z": 6.0,
+        "x": 122.0,
+        "z": 8.0,
         "remaining_material_mm3": 0.0
       },
       {
-        "x": 124.0,
-        "z": 64.0,
+        "x": 122.0,
+        "z": 62.0,
         "remaining_material_mm3": 0.0
       }
     ],
     "back_cover_m2_axis_material_mm3": [
       {
-        "x": 6.0,
-        "z": 6.0,
+        "x": 8.0,
+        "z": 8.0,
         "remaining_material_mm3": 0.0
       },
       {
-        "x": 6.0,
-        "z": 64.0,
+        "x": 8.0,
+        "z": 62.0,
         "remaining_material_mm3": 0.0
       },
       {
-        "x": 124.0,
-        "z": 6.0,
+        "x": 122.0,
+        "z": 8.0,
         "remaining_material_mm3": 0.0
       },
       {
-        "x": 124.0,
-        "z": 64.0,
+        "x": 122.0,
+        "z": 62.0,
         "remaining_material_mm3": 0.0
       }
     ],
-    "insert_boss_radial_wall_mm": 2.5,
+    "insert_boss_radial_wall_mm": 1.5,
     "devboard_mounts": [
       {
-        "x": 14.5,
-        "z": 13.5,
+        "x": 22.5,
+        "z": 8.5,
         "insert_seat_material_mm3": 0.0,
-        "outer_wall_mm": 2.0
+        "outer_wall_mm": 1.25
       },
       {
-        "x": 14.5,
-        "z": 62.5,
+        "x": 22.5,
+        "z": 57.5,
         "insert_seat_material_mm3": 0.0,
-        "outer_wall_mm": 2.0
+        "outer_wall_mm": 1.25
       },
       {
-        "x": 72.5,
-        "z": 13.5,
+        "x": 80.5,
+        "z": 8.5,
         "insert_seat_material_mm3": 0.0,
-        "outer_wall_mm": 2.0
+        "outer_wall_mm": 1.25
       },
       {
-        "x": 72.5,
-        "z": 62.5,
+        "x": 80.5,
+        "z": 57.5,
         "insert_seat_material_mm3": 0.0,
-        "outer_wall_mm": 2.0
+        "outer_wall_mm": 1.25
       }
     ],
     "devboard_reference_bbox_mm": {
-      "xmin": 10.0,
-      "ymin": 54.199999999999996,
-      "zmin": 10.0,
-      "xmax": 95.0,
-      "ymax": 55.8,
-      "zmax": 66.0
+      "xmin": 18.0,
+      "ymin": 51.199999999999996,
+      "zmin": 5.0,
+      "xmax": 103.0,
+      "ymax": 52.8,
+      "zmax": 61.0
     }
   },
   "print_parts": [
@@ -201,7 +203,7 @@
         "zmin": 0.0,
         "xmax": 129.0,
         "ymax": 69.0,
-        "zmax": 6.199999809265137
+        "zmax": 9.199999809265137
       }
     }
   ]

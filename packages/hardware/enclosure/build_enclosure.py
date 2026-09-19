@@ -37,21 +37,24 @@ P = {
     "button_window_radius": 4.0,
     "divider_x": 88.8,
     "divider_width": 2.2,
-    "divider_rear_clearance": 0.4,
+    "divider_rear_clearance": 4.2,
     "screen_outer_length": 91.0,
     "screen_outer_height": 77.0,
     "screen_outer_thickness": 1.2,
-    "boss_radius": 4.0,
+    "boss_outer_af": 8.0,
+    "boss_clearance_af": 8.8,
     "m2_clearance": 2.4,
-    "insert_outer_diameter": 3.2,
-    "insert_pilot_diameter": 3.0,
-    "insert_depth": 4.0,
-    "insert_lead_in_depth": 0.6,
+    # M2 female brass hex standoff capture dimensions.
+    "m2_standoff_af": 4.5,
+    "m2_hex_pocket_af": 5.0,
+    "m2_hex_lead_in_af": 5.4,
+    "m2_standoff_length": 5.0,
+    "m2_hex_lead_in_depth": 0.6,
     "m2_screw_length": 6.0,
     "boss_start_y": 44.0,
     "boss_length": 12.0,
-    "boss_x": (6.0, 124.0),
-    "boss_z": (6.0, 64.0),
+    "boss_x": (8.0, 122.0),
+    "boss_z": (8.0, 62.0),
     "cover_y": 56.0,
     "cover_thickness": 4.0,
     "cover_edge": 0.5,
@@ -65,14 +68,14 @@ P = {
     "devboard_length": 85.0,
     "devboard_height": 56.0,
     "devboard_thickness": 1.6,
-    "devboard_x": 10.0,
-    "devboard_z": 10.0,
+    "devboard_x": 18.0,
+    "devboard_z": 5.0,
     "devboard_hole_x": (4.5, 62.5),
     "devboard_hole_z": (3.5, 52.5),
-    "devboard_boss_radius": 3.5,
-    "devboard_boss_y": 53.8,
-    "devboard_boss_height": 2.4,
-    "devboard_insert_depth": 4.0,
+    "devboard_boss_outer_af": 7.5,
+    "devboard_boss_y": 50.8,
+    "devboard_boss_height": 5.4,
+    "devboard_insert_depth": 5.0,
 }
 
 
@@ -97,6 +100,25 @@ def rounded_prism_xz(x0, z0, width, height, depth, y0, radius):
 
 def screw_cylinder(x, z, y0, depth, radius):
     return Part.makeCylinder(radius, depth, App.Vector(x, y0, z), App.Vector(0, 1, 0))
+
+
+def hex_prism_xz(x, z, y0, depth, across_flats, rotation_degrees=30.0):
+    """Regular hexagonal prism in the XZ plane, extruded along +Y."""
+    import math
+
+    circumradius = across_flats / math.sqrt(3.0)
+    angle = math.radians(rotation_degrees)
+    points = [
+        App.Vector(
+            x + circumradius * math.cos(angle + index * math.pi / 3.0),
+            y0,
+            z + circumradius * math.sin(angle + index * math.pi / 3.0),
+        )
+        for index in range(6)
+    ]
+    points.append(points[0])
+    wire = Part.makePolygon(points)
+    return Part.Face(wire).extrude(App.Vector(0, depth, 0))
 
 
 def make_front_shell():
@@ -159,30 +181,35 @@ def make_front_shell():
     for x in P["boss_x"]:
         for z in P["boss_z"]:
             bosses.append(
-                screw_cylinder(x, z, P["boss_start_y"], P["boss_length"], P["boss_radius"])
+                hex_prism_xz(
+                    x,
+                    z,
+                    P["boss_start_y"],
+                    P["boss_length"],
+                    P["boss_outer_af"],
+                )
             )
     shell = shell.fuse(bosses).removeSplitter()
 
-    # Rear-entry seats for M2 brass heat-set inserts. The pilot diameter is
-    # intentionally undersized relative to the nominal insert outside diameter.
+    # Rear-entry hexagonal capture seats for M2 female brass hex standoffs.
     for x in P["boss_x"]:
         for z in P["boss_z"]:
             shell = shell.cut(
-                screw_cylinder(
+                hex_prism_xz(
                     x,
                     z,
-                    P["shell_depth"] - P["insert_depth"],
-                    P["insert_depth"] + 0.1,
-                    P["insert_pilot_diameter"] / 2.0,
+                    P["shell_depth"] - P["m2_standoff_length"],
+                    P["m2_standoff_length"] + 0.1,
+                    P["m2_hex_pocket_af"],
                 )
             )
             shell = shell.cut(
-                screw_cylinder(
+                hex_prism_xz(
                     x,
                     z,
-                    P["shell_depth"] - P["insert_lead_in_depth"],
-                    P["insert_lead_in_depth"] + 0.1,
-                    P["insert_outer_diameter"] / 2.0,
+                    P["shell_depth"] - P["m2_hex_lead_in_depth"],
+                    P["m2_hex_lead_in_depth"] + 0.1,
+                    P["m2_hex_lead_in_af"],
                 )
             )
     return shell.removeSplitter()
@@ -226,7 +253,13 @@ def make_back_cover():
     for x in P["boss_x"]:
         for z in P["boss_z"]:
             lip = lip.cut(
-                screw_cylinder(x, z, P["cover_lip_start_y"] - 0.4, P["cover_lip_depth"] + 0.8, P["boss_radius"] + 0.8)
+                hex_prism_xz(
+                    x,
+                    z,
+                    P["cover_lip_start_y"] - 0.4,
+                    P["cover_lip_depth"] + 0.8,
+                    P["boss_clearance_af"],
+                )
             )
     cover = cover.fuse(lip).removeSplitter()
 
@@ -246,7 +279,7 @@ def make_back_cover():
                 )
             )
 
-    # Four rear-cover mounting seats for M2 brass heat-set inserts. The seats
+    # Four rear-cover mounting seats for M2 female brass hex standoffs. The seats
     # project into the front-shell cavity so the board can be installed before
     # the front shell is clipped over it. A 0.2 mm overlap with the cover body
     # keeps the seats a single printable solid.
@@ -256,12 +289,12 @@ def make_back_cover():
             x = P["devboard_x"] + local_x
             z = P["devboard_z"] + local_z
             devboard_mounts.append(
-                screw_cylinder(
+                hex_prism_xz(
                     x,
                     z,
                     P["devboard_boss_y"],
                     P["devboard_boss_height"],
-                    P["devboard_boss_radius"],
+                    P["devboard_boss_outer_af"],
                 )
             )
     cover = cover.fuse(devboard_mounts).removeSplitter()
@@ -270,21 +303,21 @@ def make_back_cover():
             x = P["devboard_x"] + local_x
             z = P["devboard_z"] + local_z
             cover = cover.cut(
-                screw_cylinder(
+                hex_prism_xz(
                     x,
                     z,
                     P["devboard_boss_y"],
                     P["devboard_insert_depth"],
-                    P["insert_pilot_diameter"] / 2.0,
+                    P["m2_hex_pocket_af"],
                 )
             )
             cover = cover.cut(
-                screw_cylinder(
+                hex_prism_xz(
                     x,
                     z,
                     P["devboard_boss_y"],
-                    P["insert_lead_in_depth"],
-                    P["insert_outer_diameter"] / 2.0,
+                    P["m2_hex_lead_in_depth"],
+                    P["m2_hex_lead_in_af"],
                 )
             )
     return cover.removeSplitter()
@@ -308,9 +341,11 @@ def add_parameters(doc):
         ("WindowHeight", P["window_height"]),
         ("WindowRadius", P["window_radius"]),
         ("M2Clearance", P["m2_clearance"]),
-        ("InsertOuterDiameter", P["insert_outer_diameter"]),
-        ("InsertPilotDiameter", P["insert_pilot_diameter"]),
-        ("InsertDepth", P["insert_depth"]),
+        ("M2StandoffAcrossFlats", P["m2_standoff_af"]),
+        ("M2HexPocketAcrossFlats", P["m2_hex_pocket_af"]),
+        ("M2HexLeadInAcrossFlats", P["m2_hex_lead_in_af"]),
+        ("M2StandoffLength", P["m2_standoff_length"]),
+        ("M2HexLeadInDepth", P["m2_hex_lead_in_depth"]),
         ("M2ScrewLength", P["m2_screw_length"]),
         ("CoverThickness", P["cover_thickness"]),
         ("CoverLipClearance", P["cover_lip_clearance"]),
@@ -327,7 +362,7 @@ def add_parameters(doc):
         ("DevboardZ", P["devboard_z"]),
         ("DevboardMountHolePitchX", P["devboard_hole_x"][1] - P["devboard_hole_x"][0]),
         ("DevboardMountHolePitchZ", P["devboard_hole_z"][1] - P["devboard_hole_z"][0]),
-        ("DevboardBossRadius", P["devboard_boss_radius"]),
+        ("DevboardBossAcrossFlats", P["devboard_boss_outer_af"]),
         ("DevboardBossY", P["devboard_boss_y"]),
         ("DevboardBossHeight", P["devboard_boss_height"]),
         ("DevboardInsertDepth", P["devboard_insert_depth"]),
@@ -419,7 +454,7 @@ def main():
     cover.Shape = cover_shape
     add_property(cover, "Thickness", "4 mm")
     add_property(cover, "Fasteners", "4 x M2 x 6 mm, 2.4 mm clearance")
-    add_property(front, "InsertSeats", "4 x M2 brass heat-set insert seats, 3.0 mm pilot x 4.0 mm deep")
+    add_property(front, "InsertSeats", "4 x hex M2 brass heat-set insert seats; standoff AF 4.5 mm, blind pocket AF 5.0 mm x 5.0 mm deep")
     add_property(
         cover,
         "DevboardMounts",
@@ -474,9 +509,9 @@ def main():
             "solid_intersection_mm3": float(front_shape.common(cover_shape).Volume),
             "front_insert_seat_material_mm3": axis_clearance_report(
                 front_shape,
-                P["shell_depth"] - P["insert_depth"],
-                P["insert_depth"],
-                P["insert_pilot_diameter"] / 2.0,
+                P["shell_depth"] - P["m2_standoff_length"],
+                P["m2_standoff_length"],
+                P["m2_hex_pocket_af"] / 2.0,
             ),
             "back_cover_m2_axis_material_mm3": axis_clearance_report(
                 cover_shape,
@@ -484,23 +519,23 @@ def main():
                 P["cover_thickness"] + P["cover_lip_depth"] + 2.0,
                 P["m2_clearance"] / 2.0,
             ),
-            "insert_boss_radial_wall_mm": P["boss_radius"] - P["insert_pilot_diameter"] / 2.0,
+            "insert_boss_radial_wall_mm": (P["boss_outer_af"] - P["m2_hex_pocket_af"]) / 2.0,
             "devboard_mounts": [
                 {
                     "x": P["devboard_x"] + local_x,
                     "z": P["devboard_z"] + local_z,
                     "insert_seat_material_mm3": float(
                         cover_shape.common(
-                            screw_cylinder(
+                            hex_prism_xz(
                                 P["devboard_x"] + local_x,
                                 P["devboard_z"] + local_z,
                                 P["devboard_boss_y"],
                                 P["devboard_insert_depth"],
-                                P["insert_pilot_diameter"] / 2.0,
+                                P["m2_hex_pocket_af"],
                             )
                         ).Volume
                     ),
-                    "outer_wall_mm": P["devboard_boss_radius"] - P["insert_pilot_diameter"] / 2.0,
+                    "outer_wall_mm": (P["devboard_boss_outer_af"] - P["m2_hex_pocket_af"]) / 2.0,
                 }
                 for local_x in P["devboard_hole_x"]
                 for local_z in P["devboard_hole_z"]
