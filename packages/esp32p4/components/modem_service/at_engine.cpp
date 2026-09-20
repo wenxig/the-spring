@@ -16,6 +16,7 @@
 #include "usb/usb_host.h"
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <cstdio>
@@ -25,6 +26,7 @@
 namespace {
 using namespace spring::modem;
 constexpr char kTag[] = "modem";
+constexpr std::array<std::uint8_t, 3> kPppLcpMarker{0x7e, 0xc0, 0x21};
 Snapshot state{};
 std::mutex state_mutex;
 // Owns DCE lifetime, AT transactions, mode transitions and cellular HTTP operations.
@@ -33,6 +35,7 @@ std::atomic_bool started{};
 std::atomic_bool online{};
 std::atomic_bool at_ready{};
 std::atomic_bool disconnected{};
+std::atomic_bool ppp_probe_seen{};
 std::atomic<esp_netif_t*> ppp_netif{};
 std::unique_ptr<esp_modem::DCE> dce;
 
@@ -129,12 +132,17 @@ public:
   int write(std::uint8_t* data, std::size_t len) override {
     if (cdc_device_ == nullptr || data == nullptr || len == 0)
       return -1;
+    ESP_LOGI(kTag, "AT TX bytes=%u", static_cast<unsigned>(len));
     ESP_LOG_BUFFER_HEXDUMP(kTag, data, len, ESP_LOG_DEBUG);
     const auto err = cdc_acm_host_data_tx_blocking(cdc_device_, data, len, 1000);
     if (err != ESP_OK) {
       ESP_LOGE(kTag, "AT TX failed: %s", esp_err_to_name(err));
       return -1;
     }
+    // EC600M requires one second of silence after the three-byte escape
+    // sequence before it emits the command-mode result.
+    if (len == 3 && data[0] == '+' && data[1] == '+' && data[2] == '+')
+      vTaskDelay(pdMS_TO_TICKS(1100));
     return static_cast<int>(len);
   }
 
@@ -145,7 +153,14 @@ public:
 private:
   static bool on_rx(const std::uint8_t* data, std::size_t len, void* user_arg) {
     auto* terminal = static_cast<HistoricalUsbTerminal*>(user_arg);
-    ESP_LOG_BUFFER_HEXDUMP(kTag, data, len, ESP_LOG_DEBUG);
+    ESP_LOGI(kTag, "AT RX bytes=%u", static_cast<unsigned>(len));
+    ESP_LOG_BUFFER_HEXDUMP(kTag, data, len, ESP_LOG_INFO);
+    if (data != nullptr && len >= 3) {
+      const auto has_lcp = std::search(data, data + len, std::begin(kPppLcpMarker),
+                                       std::end(kPppLcpMarker)) != data + len;
+      if (has_lcp)
+        ppp_probe_seen.store(true);
+    }
     if (terminal == nullptr || terminal->on_read == nullptr) {
       ESP_LOGW(kTag, "AT RX dropped: DTE callback is not installed");
       return true;
@@ -158,11 +173,17 @@ private:
     if (terminal == nullptr || event == nullptr)
       return;
     if (event->type == CDC_ACM_HOST_DEVICE_DISCONNECTED) {
+      ESP_LOGW(kTag, "EC600M AT USB device disconnected");
       terminal->cdc_device_ = nullptr;
       if (terminal->on_error != nullptr)
         terminal->on_error(esp_modem::terminal_error::DEVICE_GONE);
-    } else if (event->type == CDC_ACM_HOST_ERROR && terminal->on_error != nullptr) {
-      terminal->on_error(esp_modem::terminal_error::UNEXPECTED_CONTROL_FLOW);
+    } else if (event->type == CDC_ACM_HOST_ERROR) {
+      ESP_LOGW(kTag, "EC600M AT USB error=%d", event->data.error);
+      if (terminal->on_error != nullptr)
+        terminal->on_error(esp_modem::terminal_error::UNEXPECTED_CONTROL_FLOW);
+    } else if (event->type == CDC_ACM_HOST_SERIAL_STATE) {
+      ESP_LOGI(kTag, "EC600M AT serial state=0x%02x",
+               static_cast<unsigned>(event->data.serial_state.val));
     }
   }
 
@@ -344,8 +365,27 @@ void modem_task(void*) {
         }
       }
       if (dce && !online.load()) {
-        if (dce->get_mode() == esp_modem::modem_mode::DATA_MODE)
-          (void)dce->set_mode(esp_modem::modem_mode::COMMAND_MODE);
+        // The modem can retain PPP data mode across an ESP32 reset. Detect it
+        // before sending AT; otherwise the AT command is consumed as PPP data.
+        ppp_probe_seen.store(false);
+        auto detected_mode = dce->guess_mode(true);
+        if (detected_mode == esp_modem::modem_mode::UNDEF && ppp_probe_seen.load()) {
+          ESP_LOGI(kTag, "EC600M PPP LCP frame detected during mode probe");
+          detected_mode = esp_modem::modem_mode::DATA_MODE;
+        }
+        ESP_LOGI(kTag, "EC600M initial mode=%d", static_cast<int>(detected_mode));
+        if (detected_mode == esp_modem::modem_mode::DATA_MODE) {
+          ESP_LOGI(kTag, "leaving retained PPP data mode");
+          // guess_mode() does not update DCE_Mode::mode. Use pause_netif()
+          // so the module gets its mandatory guard time before +++ without
+          // running the normal DCE transition twice.
+          if (dce->pause_netif(true) != esp_modem::command_result::OK) {
+            ESP_LOGW(kTag, "failed to leave retained PPP data mode");
+            vTaskDelay(pdMS_TO_TICKS(1000));
+          }
+        } else if (detected_mode == esp_modem::modem_mode::COMMAND_MODE) {
+          (void)dce->set_mode(esp_modem::modem_mode::RESUME_COMMAND_MODE);
+        }
         std::string response;
         at_ready.store(command_locked("AT", 1500, response) == Result::ok);
         if (at_ready.load()) {
