@@ -78,7 +78,10 @@ Result command_locked(std::string_view command, std::uint32_t timeout, std::stri
   if (!dce || disconnected.load())
     return Result::transport_error;
   const auto result = dce->command(
-      std::string{command} + "\r",
+      // EC600M's dedicated AT bulk port follows the historical engine's
+      // CRLF framing. Keep this explicit because it is not a generic CDC
+      // serial console.
+      std::string{command} + "\r\n",
       [&](std::uint8_t* data, std::size_t size) {
         // esp_modem supplies the complete accumulated response on each callback.
         response.assign(reinterpret_cast<const char*>(data), std::min(size, kMaxResponseBytes));
@@ -127,7 +130,7 @@ std::shared_ptr<esp_modem::DTE> create_dte() {
 
 void modem_task(void*) {
   ESP_LOGI(kTag,
-           "modem task started; EC600M AT CDC-ACM VID=0x%04x PID=0x%04x interface=%d secondary=%d",
+           "modem task started; EC600M dedicated AT bulk port VID=0x%04x PID=0x%04x interface=%d secondary=%d",
            CONFIG_SPRING_MODEM_USB_VID, CONFIG_SPRING_MODEM_USB_PID,
            CONFIG_SPRING_MODEM_USB_AT_INTERFACE, CONFIG_SPRING_MODEM_USB_SECONDARY_INTERFACE);
   const auto netif_result = esp_netif_init();
@@ -158,10 +161,10 @@ void modem_task(void*) {
         dce.reset();
       }
       if (!dce) {
-        ESP_LOGI(kTag, "waiting for EC600M AT CDC-ACM port");
+        ESP_LOGI(kTag, "waiting for EC600M dedicated AT port");
         auto dte = create_dte();
         if (dte) {
-          ESP_LOGI(kTag, "EC600M AT CDC-ACM port opened");
+          ESP_LOGI(kTag, "EC600M dedicated AT port opened");
           dte->set_error_cb([](esp_modem::terminal_error error) {
             at_ready.store(false);
             link_state(false, static_cast<int>(error) + 100);
