@@ -4,14 +4,13 @@ Run with:
   /Applications/FreeCAD.app/Contents/Resources/bin/freecadcmd \
     packages/hardware/enclosure/build_enclosure.py
 """
-from pathlib import Path
 import json
-import sys
+from pathlib import Path
 
 import FreeCAD as App
-import Part
 import Mesh
 import MeshPart
+import Part
 
 ROOT = Path(__file__).resolve().parent
 OUT = ROOT / "output"
@@ -75,27 +74,30 @@ P = {
     "devboard_insert_depth": 5.0,
     # Keep the board on the screen-facing side of the boss tip.
     "devboard_reference_clearance": 0.2,
-    # EC600X-EVB silkscreen reference. Dimensions are scaled from the 2.54 mm
-    # header pitch in the supplied PDF; the board is rotated 180 degrees so
-    # the USB-C edge faces the button side (+X).
-    "ec600x_length": 85.0,
-    "ec600x_depth": 46.0,
-    "ec600x_corner_radius": 3.0,
-    "ec600x_x": 33.0,
-    "ec600x_y": 4.5,
+    # Upright PCB: long edge along X, component face toward +Y, USB-C toward +X.
+    # Outline scaled from the PDF using the assumed 2.54 mm header pitch.
+    "ec600x_length": 88.0,
+    "ec600x_height": 48.0,
+    "ec600x_corner_radius": 2.5,
+    "ec600x_x": 28.0,
+    "ec600x_y": 9.0,
     "ec600x_floor_z": 3.0,
-    "ec600x_board_z": 9.6,
+    "ec600x_board_z": 8.0,
     "ec600x_thickness": 1.6,
-    "ec600x_mount_hole_x": 53.5,
-    "ec600x_mount_hole_y": 9.0,
+    "ec600x_mount_hole_x": 55.46,
+    "ec600x_mount_hole_z": 6.9,
     "ec600x_mount_hole_diameter": 2.4,
-    "ec600x_boss_outer_af": 7.5,
-    "ec600x_boss_height": 6.4,
-    "ec600x_insert_depth": 5.0,
-    "ec600x_l_stop_wall": 1.5,
-    "ec600x_l_stop_leg": 3.0,
-    "ec600x_l_stop_gap": 0.4,
-    "ec600x_l_stop_top_clearance": 0.4,
+    "ec600x_slot_width": 2.0,
+    "ec600x_guide_wall": 1.6,
+    "ec600x_guide_height": 8.0,
+    "ec600x_edge_gap": 0.4,
+    "ec600x_guide_inset": 6.0,
+    "ec600x_rear_edge_land": 1.0,
+    "ec600x_latch_thickness": 1.5,
+    "ec600x_latch_overlap": 4.0,
+    "ec600x_latch_top_gap": 0.25,
+    "ec600x_latch_release": 4.6,
+    "ec600x_insertion_lift": 8.4,
 }
 
 
@@ -177,32 +179,53 @@ def hex_prism_xy(x, y, z0, height, across_flats, rotation_degrees=30.0):
 
 
 def make_ec600x_mounts():
-    """Build one EC600X M2 insert seat and four corner L-shaped stops."""
-    x0, y0 = P["ec600x_x"], P["ec600x_y"]
-    x1, y1 = x0 + P["ec600x_length"], y0 + P["ec600x_depth"]
-    z0 = P["ec600x_floor_z"]
-    top = P["ec600x_board_z"] + P["ec600x_thickness"] + P["ec600x_l_stop_top_clearance"]
-    height = top - z0
-    wall, leg, gap = P["ec600x_l_stop_wall"], P["ec600x_l_stop_leg"], P["ec600x_l_stop_gap"]
+    """Two edge U-guides with relieved component-side jaws and bottom ledges."""
+    x0, y0, z0 = P["ec600x_x"], P["ec600x_y"], P["ec600x_board_z"]
+    x1 = x0 + P["ec600x_length"]
+    gap = (P["ec600x_slot_width"] - P["ec600x_thickness"]) / 2
+    wall = P["ec600x_guide_wall"]
+    y_min = y0 - gap - wall
+    depth = P["ec600x_slot_width"] + 2 * wall
+    top = z0 + P["ec600x_guide_height"]
+    floor = P["ec600x_floor_z"]
     supports = []
     for left in (True, False):
-        for front in (True, False):
-            side_x = x0 - gap - wall if left else x1 + gap
-            edge_y = y0 - gap - wall if front else y1 + gap
-            x_leg = x0 - gap - leg if left else x1 + gap
-            y_leg = y0 - gap - leg if front else y1 + gap - leg
-            supports.append(Part.makeBox(leg, wall, height, App.Vector(x_leg, edge_y, z0)))
-            supports.append(Part.makeBox(wall, leg, height, App.Vector(side_x, y_leg, z0)))
-
-    hole_x, hole_y = x0 + P["ec600x_mount_hole_x"], y0 + P["ec600x_mount_hole_y"]
-    boss = hex_prism_xy(hole_x, hole_y, z0, P["ec600x_boss_height"], P["ec600x_boss_outer_af"])
-    pocket_start = z0 + P["ec600x_boss_height"] - P["ec600x_insert_depth"]
-    boss = boss.cut(hex_prism_xy(hole_x, hole_y, pocket_start, P["ec600x_insert_depth"] + 0.1, P["m2_hex_pocket_af"]))
-    boss = boss.cut(Part.makeCylinder(P["ec600x_mount_hole_diameter"] / 2.0, P["ec600x_boss_height"] + 0.2, App.Vector(hole_x, hole_y, z0 - 0.1), App.Vector(0, 0, 1)))
-    return supports, boss
+        start = x0 - 3.5 if left else x1 - P["ec600x_guide_inset"]
+        end = x0 + P["ec600x_guide_inset"] if left else x1 + 2.0
+        guide = Part.makeBox(end - start, depth, top - floor, App.Vector(start, y_min, floor))
+        slot_x = x0 - P["ec600x_edge_gap"] if left else start - 0.1
+        slot_end = end + 0.1 if left else x1 + P["ec600x_edge_gap"]
+        guide = guide.cut(Part.makeBox(slot_end - slot_x, P["ec600x_slot_width"], top - z0 + 0.1, App.Vector(slot_x, y0 - gap, z0)))
+        # Only the outer 1 mm board edge meets the tall component-side jaw.
+        relief_x = x0 + P["ec600x_rear_edge_land"] if left else start - 0.1
+        relief_end = end + 0.1 if left else x1 - P["ec600x_rear_edge_land"]
+        guide = guide.cut(Part.makeBox(relief_end - relief_x, wall + 0.2, top - z0, App.Vector(relief_x, y0 + P["ec600x_thickness"] + gap, z0 + 1.0)))
+        supports.append(guide.removeSplitter())
+    return supports
 
 
-def make_front_shell():
+def make_ec600x_latch(released=False):
+    """Side cantilever attached to the left guide; the hook captures the top edge.
+
+    The released shape is a kinematic clearance envelope, not a stress simulation.
+    """
+    x = P["ec600x_x"] - 3.5
+    y = P["ec600x_y"] - 0.2
+    root = P["ec600x_board_z"] + P["ec600x_guide_height"] - 0.2
+    catch = P["ec600x_board_z"] + P["ec600x_height"] + P["ec600x_latch_top_gap"]
+    t = P["ec600x_latch_thickness"]
+    shift = P["ec600x_latch_release"] if released else 0.0
+    tip = P["ec600x_x"] + P["ec600x_latch_overlap"] - shift
+    outline = [(x, root), (x+t, root), (x+t-shift, catch), (tip, catch),
+               (tip, catch+0.7), (tip-1.0, catch+2.0), (x-shift, catch+2.0)]
+    points = [App.Vector(px, y, pz) for px, pz in outline]
+    points.append(points[0])
+    latch = Part.Face(Part.makePolygon(points)).extrude(App.Vector(0, P["ec600x_slot_width"], 0))
+    tab = Part.makeBox(3.0, 4.0, 2.0, App.Vector(x-shift-2.0, y, catch-1.0))
+    return latch.fuse(tab).removeSplitter()
+
+
+def make_front_shell(latch_released=False):
     outer = rounded_prism_xz(
         0,
         0,
@@ -279,8 +302,7 @@ def make_front_shell():
                     P["m2_hex_lead_in_af"],
                 )
             )
-    ec_stops, ec_boss = make_ec600x_mounts()
-    shell = shell.fuse(ec_stops + [ec_boss]).removeSplitter()
+    shell = shell.fuse(make_ec600x_mounts() + [make_ec600x_latch(latch_released)]).removeSplitter()
     return shell.removeSplitter()
 
 
@@ -434,18 +456,18 @@ def add_parameters(doc):
         ("DevboardInsertDepth", P["devboard_insert_depth"]),
         ("DevboardReferenceClearance", P["devboard_reference_clearance"]),
         ("EC600XLength", P["ec600x_length"]),
-        ("EC600XDepth", P["ec600x_depth"]),
+        ("EC600XHeight", P["ec600x_height"]),
         ("EC600XX", P["ec600x_x"]),
         ("EC600XY", P["ec600x_y"]),
         ("EC600XBoardZ", P["ec600x_board_z"]),
         ("EC600XMountHoleX", P["ec600x_mount_hole_x"]),
-        ("EC600XMountHoleY", P["ec600x_mount_hole_y"]),
-        ("EC600XBossAcrossFlats", P["ec600x_boss_outer_af"]),
-        ("EC600XBossHeight", P["ec600x_boss_height"]),
-        ("EC600XInsertDepth", P["ec600x_insert_depth"]),
-        ("EC600XLStopWall", P["ec600x_l_stop_wall"]),
-        ("EC600XLStopLeg", P["ec600x_l_stop_leg"]),
-        ("EC600XLStopGap", P["ec600x_l_stop_gap"]),
+        ("EC600XMountHoleZ", P["ec600x_mount_hole_z"]),
+        ("EC600XSlotWidth", P["ec600x_slot_width"]),
+        ("EC600XGuideWall", P["ec600x_guide_wall"]),
+        ("EC600XGuideHeight", P["ec600x_guide_height"]),
+        ("EC600XEdgeGap", P["ec600x_edge_gap"]),
+        ("EC600XLatchThickness", P["ec600x_latch_thickness"]),
+        ("EC600XLatchRelease", P["ec600x_latch_release"]),
     ]
     sheet.set("A1", "Parameter")
     sheet.set("B1", "Value")
@@ -511,6 +533,26 @@ def axis_clearance_report(shape, y0, depth, radius):
     return checks
 
 
+def ec600x_insertion_report(board):
+    """Conservative rectangular sweeps: rear entry, then down into both guides."""
+    x, y, z = P["ec600x_x"], P["ec600x_y"], P["ec600x_board_z"]
+    lift = P["ec600x_insertion_lift"]
+    raised = Part.makeBox(P["ec600x_length"], 80.0 - y, P["ec600x_height"], App.Vector(x, y, z + lift))
+    descent = Part.makeBox(P["ec600x_length"], P["ec600x_thickness"], P["ec600x_height"] + lift, App.Vector(x, y, z))
+    released_shell = make_front_shell(latch_released=True)
+    raised_board = board.copy()
+    raised_board.translate(App.Vector(0, 0, 0.8))
+    return {
+        "rear_entry_sweep_intersection_mm3": float(raised.common(released_shell).Volume),
+        "descent_sweep_intersection_mm3": float(descent.common(released_shell).Volume),
+        "latched_lift_contact_mm3": float(raised_board.common(make_ec600x_latch()).Volume),
+        "latch_release_travel_mm": P["ec600x_latch_release"],
+        "lift_mm": lift,
+        "roof_clearance_mm": P["outer_height"] - P["wall"] - z - P["ec600x_height"] - lift,
+        "scope": "Bare PCB envelopes, cover removed, latch held released; elastic behavior and components require trial fit",
+    }
+
+
 def main():
     doc = App.newDocument("PrintableEnclosure")
     params = add_parameters(doc)
@@ -527,8 +569,8 @@ def main():
     add_property(front, "Window", "84.8 x 63.6 mm display area, R5.5")
     add_property(front, "WallThickness", "4 mm")
     add_property(front, "PrintOrientation", "Front face down; rotate +90 deg about X")
-    add_property(front, "EC600XMount", "4 x L-shaped stops + 1 x hex M2 insert seat")
-    add_property(front, "EC600XPlacement", "85 x 46 x 1.6 mm reference; USB-C toward +X button side")
+    add_property(front, "EC600XMount", "2 x bottom U-guides; left releasable top-edge latch")
+    add_property(front, "EC600XPlacement", "88 x 48 x 1.6 mm upright reference; component face +Y; USB-C +X")
     assembly.addObject(front)
 
     cover = doc.addObject("PartDesign::Feature", "BackCover")
@@ -579,20 +621,27 @@ def main():
     references.addObject(devboard_ref)
 
     ec600x_ref = doc.addObject("Part::Feature", "EC600XEVBReference")
-    ec600x_ref.Label = "EC600X-EVB envelope (85 x 46 x 1.6 mm; USB-C +X)"
-    ec600x_ref.Shape = rounded_prism_xy(
+    ec600x_ref.Label = "EC600X-EVB upright PCB (88 x 48 x 1.6 mm; USB-C +X)"
+    ec600x_ref.Shape = rounded_prism_xz(
         P["ec600x_x"],
-        P["ec600x_y"],
-        P["ec600x_length"],
-        P["ec600x_depth"],
-        P["ec600x_thickness"],
         P["ec600x_board_z"],
+        P["ec600x_length"],
+        P["ec600x_height"],
+        P["ec600x_thickness"],
+        P["ec600x_y"],
         P["ec600x_corner_radius"],
     )
+    ec600x_ref.Shape = ec600x_ref.Shape.cut(screw_cylinder(
+        P["ec600x_x"] + P["ec600x_mount_hole_x"],
+        P["ec600x_board_z"] + P["ec600x_mount_hole_z"],
+        P["ec600x_y"] - 0.1, P["ec600x_thickness"] + 0.2,
+        P["ec600x_mount_hole_diameter"] / 2,
+    ))
     add_property(ec600x_ref, "Source", "User-provided EC600X系列开发板丝印.pdf; size scaled from 2.54 mm header pitch")
-    add_property(ec600x_ref, "BoardSize", "85 x 46 x 1.6 mm estimated")
+    add_property(ec600x_ref, "BoardSize", "88 x 48 x 1.6 mm estimated; verify against physical PCB")
     add_property(ec600x_ref, "MountingHole", "Single M2 hole beside QuecPython marking")
-    add_property(ec600x_ref, "MountingHolePosition", "Rotated placement: X=86.5 mm, Y=15.0 mm")
+    add_property(ec600x_ref, "MountingHolePosition", "Local X=55.46 mm, Z=6.9 mm; nominal 2.4 mm diameter")
+    add_property(ec600x_ref, "ComponentFace", "Rearward (+Y); component heights and solder joints require physical verification")
     add_property(ec600x_ref, "USBOrientation", "USB-C toward +X button side")
     add_property(ec600x_ref, "InterfacePolicy", "Internal; no enclosure openings")
     references.addObject(ec600x_ref)
@@ -625,15 +674,20 @@ def main():
             ),
             "ec600x_mount_intersection_mm3": [
                 float(ec600x_ref.Shape.common(shape).Volume)
-                for shape in make_ec600x_mounts()[0] + [make_ec600x_mounts()[1]]
+                for shape in make_ec600x_mounts() + [make_ec600x_latch()]
             ],
+            "ec600x_cover_intersection_mm3": float(ec600x_ref.Shape.common(cover_shape).Volume),
+            "ec600x_esp32_intersection_mm3": float(ec600x_ref.Shape.common(devboard_ref.Shape).Volume),
+            "ec600x_esp32_pcb_gap_mm": float(ec600x_ref.Shape.distToShape(devboard_ref.Shape)[0]),
+            "esp32_front_intersection_mm3": float(devboard_ref.Shape.common(front_shape).Volume),
+            "ec600x_insertion": ec600x_insertion_report(ec600x_ref.Shape),
             "ec600x_reference_bbox_mm": {
                 "xmin": P["ec600x_x"],
                 "ymin": P["ec600x_y"],
                 "zmin": P["ec600x_board_z"],
                 "xmax": P["ec600x_x"] + P["ec600x_length"],
-                "ymax": P["ec600x_y"] + P["ec600x_depth"],
-                "zmax": P["ec600x_board_z"] + P["ec600x_thickness"],
+                "ymax": P["ec600x_y"] + P["ec600x_thickness"],
+                "zmax": P["ec600x_board_z"] + P["ec600x_height"],
             },
             "front_insert_seat_material_mm3": axis_clearance_report(
                 front_shape,

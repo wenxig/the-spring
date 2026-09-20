@@ -64,24 +64,28 @@
     "devboard_boss_height": 5.4,
     "devboard_insert_depth": 5.0,
     "devboard_reference_clearance": 0.2,
-    "ec600x_length": 85.0,
-    "ec600x_depth": 46.0,
-    "ec600x_corner_radius": 3.0,
-    "ec600x_x": 33.0,
-    "ec600x_y": 4.5,
+    "ec600x_length": 88.0,
+    "ec600x_height": 48.0,
+    "ec600x_corner_radius": 2.5,
+    "ec600x_x": 28.0,
+    "ec600x_y": 9.0,
     "ec600x_floor_z": 3.0,
-    "ec600x_board_z": 9.6,
+    "ec600x_board_z": 8.0,
     "ec600x_thickness": 1.6,
-    "ec600x_mount_hole_x": 53.5,
-    "ec600x_mount_hole_y": 9.0,
+    "ec600x_mount_hole_x": 55.46,
+    "ec600x_mount_hole_z": 6.9,
     "ec600x_mount_hole_diameter": 2.4,
-    "ec600x_boss_outer_af": 7.5,
-    "ec600x_boss_height": 6.4,
-    "ec600x_insert_depth": 5.0,
-    "ec600x_l_stop_wall": 1.5,
-    "ec600x_l_stop_leg": 3.0,
-    "ec600x_l_stop_gap": 0.4,
-    "ec600x_l_stop_top_clearance": 0.4
+    "ec600x_slot_width": 2.0,
+    "ec600x_guide_wall": 1.6,
+    "ec600x_guide_height": 8.0,
+    "ec600x_edge_gap": 0.4,
+    "ec600x_guide_inset": 6.0,
+    "ec600x_rear_edge_land": 1.0,
+    "ec600x_latch_thickness": 1.5,
+    "ec600x_latch_overlap": 4.0,
+    "ec600x_latch_top_gap": 0.25,
+    "ec600x_latch_release": 4.6,
+    "ec600x_insertion_lift": 8.4
   },
   "parts": [
     {
@@ -89,7 +93,7 @@
       "is_valid": true,
       "solids": 1,
       "shells": 1,
-      "volume_mm3": 89950.32722252618,
+      "volume_mm3": 90556.22184174659,
       "bbox_mm": {
         "xmin": 0.0,
         "ymin": 0.0,
@@ -122,21 +126,28 @@
     "ec600x_mount_intersection_mm3": [
       0.0,
       0.0,
-      0.0,
-      0.0,
-      0.0,
-      0.0,
-      0.0,
-      0.0,
       0.0
     ],
+    "ec600x_cover_intersection_mm3": 0.0,
+    "ec600x_esp32_intersection_mm3": 0.0,
+    "ec600x_esp32_pcb_gap_mm": 38.39999999999999,
+    "esp32_front_intersection_mm3": 0.0,
+    "ec600x_insertion": {
+      "rear_entry_sweep_intersection_mm3": 0.0,
+      "descent_sweep_intersection_mm3": 0.0,
+      "latched_lift_contact_mm3": 2.26011244364602,
+      "latch_release_travel_mm": 4.6,
+      "lift_mm": 8.4,
+      "roof_clearance_mm": 1.5999999999999996,
+      "scope": "Bare PCB envelopes, cover removed, latch held released; elastic behavior and components require trial fit"
+    },
     "ec600x_reference_bbox_mm": {
-      "xmin": 33.0,
-      "ymin": 4.5,
-      "zmin": 9.6,
-      "xmax": 118.0,
-      "ymax": 50.5,
-      "zmax": 11.2
+      "xmin": 28.0,
+      "ymin": 9.0,
+      "zmin": 8.0,
+      "xmax": 116.0,
+      "ymax": 10.6,
+      "zmax": 56.0
     },
     "front_insert_seat_material_mm3": [
       {
@@ -152,7 +163,7 @@
       {
         "x": 122.0,
         "z": 8.0,
-        "remaining_material_mm3": 9.58514359814652
+        "remaining_material_mm3": 0.0
       },
       {
         "x": 122.0,
