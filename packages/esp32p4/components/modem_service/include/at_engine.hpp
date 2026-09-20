@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 #include <string>
 #include <string_view>
 
@@ -18,6 +19,11 @@ struct Snapshot {
   bool registered{};
   bool data_attached{};
   bool ppp_has_ip{};
+  bool ppp_has_ipv6{};
+  bool ppp_ipv6_global{};
+  int ppp_ipv6_index{-1};
+  std::array<std::uint32_t, 4> ppp_ipv6{};
+  std::uint8_t ppp_ipv6_zone{};
   int ppp_error{};
   int signal_quality{99};
   bool call_active{};

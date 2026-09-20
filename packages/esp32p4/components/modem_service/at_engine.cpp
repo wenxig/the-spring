@@ -10,6 +10,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "http_transport.hpp"
+#include "lwip/ip6_addr.h"
 #include "sdkconfig.h"
 #include "usb/cdc_acm_host.h"
 #include "usb/usb_host.h"
@@ -173,6 +174,13 @@ void link_state(bool connected, int error = 0) {
   online.store(connected);
   std::lock_guard lock(state_mutex);
   state.ppp_has_ip = connected;
+  if (!connected) {
+    state.ppp_has_ipv6 = false;
+    state.ppp_ipv6_global = false;
+    state.ppp_ipv6_index = -1;
+    state.ppp_ipv6.fill(0);
+    state.ppp_ipv6_zone = 0;
+  }
   state.ppp_error = error;
   ++state.revision;
 }
@@ -185,6 +193,26 @@ void on_event(void*, esp_event_base_t base, int32_t id, void* data) {
     }
   } else if (base == IP_EVENT && id == IP_EVENT_PPP_LOST_IP) {
     link_state(false);
+  } else if (base == IP_EVENT && id == IP_EVENT_GOT_IP6) {
+    const auto* event = static_cast<ip_event_got_ip6_t*>(data);
+    if (event != nullptr && event->esp_netif == ppp_netif.load()) {
+      char address[IP6ADDR_STRLEN_MAX]{};
+      const auto* address_ptr = reinterpret_cast<const ip6_addr_t*>(&event->ip6_info.ip);
+      (void)ip6addr_ntoa_r(address_ptr, address, sizeof(address));
+      const auto address_type = esp_netif_ip6_get_addr_type(&event->ip6_info.ip);
+      {
+        std::lock_guard lock(state_mutex);
+        state.ppp_has_ipv6 = true;
+        state.ppp_ipv6_global = address_type == ESP_IP6_ADDR_IS_GLOBAL;
+        state.ppp_ipv6_index = event->ip_index;
+        std::copy(std::begin(event->ip6_info.ip.addr), std::end(event->ip6_info.ip.addr),
+                  state.ppp_ipv6.begin());
+        state.ppp_ipv6_zone = event->ip6_info.ip.zone;
+        ++state.revision;
+      }
+      ESP_LOGI(kTag, "PPP IPv6[%d]=%s type=%d", event->ip_index, address,
+               static_cast<int>(address_type));
+    }
   } else if (base == NETIF_PPP_STATUS && id > NETIF_PPP_ERRORNONE && id < NETIF_PP_PHASE_OFFSET) {
     link_state(false, static_cast<int>(id));
   }
@@ -278,6 +306,7 @@ void modem_task(void*) {
   if (!netif ||
       esp_event_handler_register(IP_EVENT, IP_EVENT_PPP_GOT_IP, on_event, nullptr) != ESP_OK ||
       esp_event_handler_register(IP_EVENT, IP_EVENT_PPP_LOST_IP, on_event, nullptr) != ESP_OK ||
+      esp_event_handler_register(IP_EVENT, IP_EVENT_GOT_IP6, on_event, nullptr) != ESP_OK ||
       esp_event_handler_register(NETIF_PPP_STATUS, ESP_EVENT_ANY_ID, on_event, nullptr) != ESP_OK) {
     ESP_LOGE(kTag, "PPP initialization failed");
     vTaskDelete(nullptr);
