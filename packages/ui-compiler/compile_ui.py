@@ -6,12 +6,21 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 
-def compile_screen(root: Path, name: str) -> list[str]:
+def compile_screen(root: Path, name: str, variant: str = "reference") -> list[str]:
     constants = {
         e.attrib["name"]: e.attrib["value"]
         for e in ET.parse(root / "globals.xml").getroot()
     }
     result = []
+    if variant != "reference":
+        if variant not in ("large-time", "weather-focus"):
+            raise ValueError(f"Unknown layout variant: {variant}")
+        constants.update(
+            {
+                e.attrib["name"]: e.attrib["value"]
+                for e in ET.parse(root / "variants" / f"{variant}.xml").getroot()
+            }
+        )
 
     def number(value: str) -> int:
         return int(constants[value[1:]] if value.startswith("#") else value)
@@ -122,12 +131,19 @@ def main():
     parser.add_argument("output", type=Path)
     parser.add_argument("--font", type=Path)
     parser.add_argument("--assets", type=Path)
+    parser.add_argument(
+        "--variant",
+        default="reference",
+        choices=("reference", "large-time", "weather-focus"),
+    )
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     scenes = ["// Generated from ui_xml.\n"]
     for screen in ("clock", "status"):
         scenes.append(f"constexpr Element {screen}_scene[] = {{\n")
-        scenes.extend(line + "\n" for line in compile_screen(args.xml, screen))
+        scenes.extend(
+            line + "\n" for line in compile_screen(args.xml, screen, args.variant)
+        )
         scenes.append("};\n")
     (args.output / "ui_scene.inc").write_text("".join(scenes))
     if args.assets is not None:

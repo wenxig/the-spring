@@ -1,0 +1,10 @@
+<globals>
+  <const name="time_y" value="48" />
+  <const name="time_size" value="68" />
+  <const name="temperature_size" value="22" />
+  <const name="weather_label_size" value="20" />
+  <const name="high_y" value="12" />
+  <const name="low_y" value="37" />
+  <const name="weather_rule_y" value="65" />
+  <const name="weather_label_y" value="71" />
+</globals>

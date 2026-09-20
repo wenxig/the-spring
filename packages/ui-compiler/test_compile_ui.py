@@ -5,7 +5,6 @@ import sys
 from pathlib import Path
 
 import pytest
-
 from compile_ui import compile_screen
 
 REPO = Path(__file__).resolve().parents[2]
@@ -17,6 +16,25 @@ def test_clock_expands_all_icon_components():
     assert sum("Kind::icon" in element for element in scene) == 5
     assert any('"snapshot.location"' in element for element in scene)
     assert any('"snapshot.countdown"' in element for element in scene)
+
+
+@pytest.mark.parametrize("variant", ["reference", "large-time", "weather-focus"])
+def test_variants_have_four_equal_forecast_columns(variant):
+    scene = compile_screen(XML, "clock", variant)
+    icons = [item for item in scene if '"forecast.icon"' in item]
+    assert len(icons) == 4
+    for slot, x in enumerate((8, 108, 208, 308)):
+        assert f".x={x}," in icons[slot]
+        assert f".slot={slot}," in icons[slot]
+    assert any('"snapshot.month"' in item for item in scene)
+    assert any('"snapshot.day"' in item for item in scene)
+
+
+def test_variant_changes_clock_size():
+    reference = compile_screen(XML, "clock")
+    large = compile_screen(XML, "clock", "large-time")
+    assert reference != large
+    assert any(".size=82," in item and '"snapshot.time"' in item for item in large)
 
 
 def test_external_assets_generate_scene(tmp_path):

@@ -1,8 +1,8 @@
 <component name="ForecastCard">
-  <lv_image x="8" y="23" width="40" height="40" bind="forecast.icon" />
-  <lv_obj x="52" y="24" width="1" height="42" />
-  <lv_label x="56" y="20" width="34" height="24" font_size="18" bind="forecast.high" />
-  <lv_label x="56" y="43" width="34" height="24" font_size="18" bind="forecast.low" />
-  <lv_label x="4" y="72" width="84" height="23" font_size="16" align="center" bind="forecast.label" />
-  <lv_label x="4" y="95" width="84" height="18" font_size="12" align="center" bind="forecast.description" />
+  <lv_image x="8" y="#icon_y" width="40" height="40" bind="forecast.icon" />
+  <lv_label x="50" y="#high_y" width="44" height="24" font_size="#temperature_size" align="center" bind="forecast.high" />
+  <lv_label x="50" y="#low_y" width="44" height="24" font_size="#temperature_size" align="center" bind="forecast.low" />
+  <lv_obj x="12" y="#weather_rule_y" width="76" height="1" />
+  <lv_label x="6" y="#weather_label_y" width="88" height="25" font_size="#weather_label_size" align="center" bind="forecast.label" />
+  <lv_label x="4" y="#description_y" width="92" height="22" font_size="13" align="center" bind="forecast.description" />
 </component>

@@ -20,7 +20,7 @@ struct Snapshot {
   bool registered{true}, locating{false}, in_call{false};
   std::uint16_t year{2026};
   std::uint8_t month{1}, day{1}, weekday{};
-  const char* location{"河北, 秦皇岛"};
+  const char* location{"位置待更新"};
   std::uint16_t countdown_days{};
   bool date_valid{}, exam_active{};
   bool weather_valid{};

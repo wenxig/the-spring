@@ -1,7 +1,16 @@
 <globals>
   <const name="screen_width" value="400" />
   <const name="screen_height" value="300" />
-  <const name="content_top" value="224" />
-  <const name="accent_column" value="277" />
-  <const name="content_bottom" value="186" />
+  <const name="accent_column" value="270" />
+  <const name="content_bottom" value="174" />
+  <const name="time_y" value="47" />
+  <const name="time_size" value="72" />
+  <const name="icon_y" value="19" />
+  <const name="high_y" value="16" />
+  <const name="low_y" value="39" />
+  <const name="temperature_size" value="19" />
+  <const name="weather_rule_y" value="67" />
+  <const name="weather_label_y" value="72" />
+  <const name="weather_label_size" value="18" />
+  <const name="description_y" value="98" />
 </globals>

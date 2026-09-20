@@ -91,7 +91,8 @@ const char* bound_text(const Element& element, const Snapshot& snapshot, const R
   if (binding.empty())
     return element.text;
   if (binding == "snapshot.location")
-    return snapshot.location;
+    return snapshot.location == nullptr || snapshot.location[0] == '\0' ? "位置待更新"
+                                                                        : snapshot.location;
   if (binding == "route.title")
     return Router::title(router.route());
   if (binding == "route.state") {
@@ -128,6 +129,10 @@ const char* bound_text(const Element& element, const Snapshot& snapshot, const R
       return number("%u", snapshot.year);
     if (binding == "snapshot.date")
       return number("%u/%u", snapshot.month, snapshot.day);
+    if (binding == "snapshot.month")
+      return number("%u", snapshot.month);
+    if (binding == "snapshot.day")
+      return number("%u", snapshot.day);
     if (binding == "snapshot.weekday") {
       constexpr std::array weekdays{"星期日", "星期一", "星期二", "星期三",
                                     "星期四", "星期五", "星期六"};
@@ -143,9 +148,9 @@ const char* bound_text(const Element& element, const Snapshot& snapshot, const R
   if (point == nullptr)
     return "--";
   if (binding == "forecast.high")
-    return number("%d", point->temperature_high_c);
+    return number("%d°", point->temperature_high_c);
   if (binding == "forecast.low")
-    return number("%d", point->temperature_low_c);
+    return number("%d°", point->temperature_low_c);
   if (binding == "forecast.description")
     return point->description.data();
   return "";
@@ -220,7 +225,8 @@ public:
       } else if (element.kind == Kind::label) {
         auto* object = lv_label_create(root);
         std::array<char, 128> text{};
-        lv_label_set_text(object, bound_text(element, snapshot, router, text));
+        const auto* value = bound_text(element, snapshot, router, text);
+        lv_label_set_text(object, value);
         lv_label_set_long_mode(object, LV_LABEL_LONG_CLIP);
         lv_obj_set_pos(object, element.x, element.y);
         lv_obj_set_size(object, element.width, element.height);

@@ -1,12 +1,13 @@
 <screen name="Clock">
   <component ref="ClockHeader" />
   <component ref="DatePanel" x="#accent_column" />
-  <lv_obj x="20" y="#content_bottom" width="360" height="1" />
+  <lv_obj x="12" y="#content_bottom" width="376" height="1" />
   <component ref="ForecastCard" x="0" y="#content_bottom" slot="0" />
-  <component ref="ForecastCard" x="92" y="#content_bottom" slot="1" />
-  <component ref="ForecastCard" x="184" y="#content_bottom" slot="2" />
-  <component ref="ForecastCard" x="#accent_column" y="#content_bottom" slot="3" />
-  <lv_obj x="92" y="204" width="1" height="76" />
-  <lv_obj x="184" y="204" width="1" height="76" />
-  <lv_obj x="#accent_column" y="0" width="1" height="300" />
+  <component ref="ForecastCard" x="100" y="#content_bottom" slot="1" />
+  <component ref="ForecastCard" x="200" y="#content_bottom" slot="2" />
+  <component ref="ForecastCard" x="300" y="#content_bottom" slot="3" />
+  <lv_obj x="100" y="194" width="1" height="84" />
+  <lv_obj x="200" y="194" width="1" height="84" />
+  <lv_obj x="300" y="194" width="1" height="84" />
+  <lv_obj x="#accent_column" y="0" width="1" height="#content_bottom" />
 </screen>
