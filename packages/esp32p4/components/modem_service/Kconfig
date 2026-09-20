@@ -18,12 +18,18 @@ config SPRING_MODEM_USB_PID
     hex "USB modem product ID"
     default 0x6002
 
-config SPRING_MODEM_USB_INTERFACE
-    int "USB modem AT interface"
+config SPRING_MODEM_USB_AT_INTERFACE
+    int "EC600M USB CDC-ACM AT interface"
     default 3
+    help
+        EC600M accepts AT commands only on this CDC-ACM interface. This is
+        the primary esp_modem terminal and must match the modem USB descriptor.
 
 config SPRING_MODEM_USB_SECONDARY_INTERFACE
-    int "USB modem secondary data interface"
+    int "EC600M USB secondary data interface"
     default -1
+    help
+        Optional secondary CDC-ACM data interface. Keep -1 when PPP shares
+        the EC600M AT port; the AT interface remains the only control port.
 
 endmenu

@@ -77,7 +77,7 @@ Result command_locked(std::string_view command, std::uint32_t timeout, std::stri
   const auto result = dce->command(
       std::string{command} + "\r\n",
       [&](std::uint8_t* data, std::size_t size) {
-        response.assign(reinterpret_cast<const char*>(data), size);
+        response.append(reinterpret_cast<const char*>(data), size);
         if (response.find("\nOK\r") != std::string::npos || response == "OK\r\n")
           return esp_modem::command_result::OK;
         if (response.find("\nERROR\r") != std::string::npos ||
@@ -87,6 +87,10 @@ Result command_locked(std::string_view command, std::uint32_t timeout, std::stri
       },
       timeout);
   process_lines(response);
+  ESP_LOGI(kTag, "AT command '%.*s' result=%d response_bytes=%u", static_cast<int>(command.size()),
+           command.data(), static_cast<int>(result), static_cast<unsigned>(response.size()));
+  if (result != esp_modem::command_result::OK && !response.empty())
+    ESP_LOGW(kTag, "AT response: %.*s", static_cast<int>(response.size()), response.data());
   if (result == esp_modem::command_result::OK)
     return Result::ok;
   if (result == esp_modem::command_result::TIMEOUT)
@@ -106,7 +110,7 @@ std::shared_ptr<esp_modem::DTE> create_dte() {
   esp_modem_usb_term_config usb{};
   usb.vid = CONFIG_SPRING_MODEM_USB_VID;
   usb.pid = CONFIG_SPRING_MODEM_USB_PID;
-  usb.interface_idx = CONFIG_SPRING_MODEM_USB_INTERFACE;
+  usb.interface_idx = CONFIG_SPRING_MODEM_USB_AT_INTERFACE;
   usb.secondary_interface_idx = CONFIG_SPRING_MODEM_USB_SECONDARY_INTERFACE;
   usb.timeout_ms = 5000;
   usb.install_usb_host = true;
@@ -116,6 +120,10 @@ std::shared_ptr<esp_modem::DTE> create_dte() {
 }
 
 void modem_task(void*) {
+  ESP_LOGI(kTag,
+           "modem task started; EC600M AT CDC-ACM VID=0x%04x PID=0x%04x interface=%d secondary=%d",
+           CONFIG_SPRING_MODEM_USB_VID, CONFIG_SPRING_MODEM_USB_PID,
+           CONFIG_SPRING_MODEM_USB_AT_INTERFACE, CONFIG_SPRING_MODEM_USB_SECONDARY_INTERFACE);
   const auto netif_result = esp_netif_init();
   const auto event_result = esp_event_loop_create_default();
   if (netif_result != ESP_OK || (event_result != ESP_OK && event_result != ESP_ERR_INVALID_STATE)) {
@@ -143,8 +151,10 @@ void modem_task(void*) {
         dce.reset();
       }
       if (!dce) {
+        ESP_LOGI(kTag, "waiting for EC600M AT CDC-ACM port");
         auto dte = create_dte();
         if (dte) {
+          ESP_LOGI(kTag, "EC600M AT CDC-ACM port opened");
           dte->set_error_cb([](esp_modem::terminal_error error) {
             link_state(false, static_cast<int>(error) + 100);
             disconnected.store(true);
@@ -157,6 +167,8 @@ void modem_task(void*) {
               process_lines({reinterpret_cast<const char*>(data), size});
               return esp_modem::command_result::TIMEOUT;
             });
+          } else {
+            ESP_LOGE(kTag, "unable to create DCE on EC600M AT port");
           }
         }
       }
@@ -213,9 +225,12 @@ CellularTransport cellular;
 void spring::modem::start() {
   if (started.exchange(true))
     return;
+  ESP_LOGI(kTag, "starting modem service; EC600M control uses the configured AT port");
   if (xTaskCreate(modem_task, "modem", 8192, nullptr, 4, nullptr) != pdPASS) {
     started.store(false);
     ESP_LOGE(kTag, "modem task allocation failed");
+  } else {
+    ESP_LOGI(kTag, "modem task created");
   }
 }
 Result spring::modem::execute(std::string_view command, std::uint32_t timeout) {
