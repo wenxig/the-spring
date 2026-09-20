@@ -68,7 +68,7 @@
     "ec600x_height": 48.0,
     "ec600x_corner_radius": 2.5,
     "ec600x_x": 28.0,
-    "ec600x_y": 9.0,
+    "ec600x_y": 20.0,
     "ec600x_floor_z": 3.0,
     "ec600x_board_z": 8.0,
     "ec600x_thickness": 1.6,
@@ -130,12 +130,12 @@
     ],
     "ec600x_cover_intersection_mm3": 0.0,
     "ec600x_esp32_intersection_mm3": 0.0,
-    "ec600x_esp32_pcb_gap_mm": 38.39999999999999,
+    "ec600x_esp32_pcb_gap_mm": 27.399999999999977,
     "esp32_front_intersection_mm3": 0.0,
     "ec600x_insertion": {
       "rear_entry_sweep_intersection_mm3": 0.0,
       "descent_sweep_intersection_mm3": 0.0,
-      "latched_lift_contact_mm3": 2.26011244364602,
+      "latched_lift_contact_mm3": 2.2601124436460265,
       "latch_release_travel_mm": 4.6,
       "lift_mm": 8.4,
       "roof_clearance_mm": 1.5999999999999996,
@@ -143,10 +143,10 @@
     },
     "ec600x_reference_bbox_mm": {
       "xmin": 28.0,
-      "ymin": 9.0,
+      "ymin": 20.0,
       "zmin": 8.0,
       "xmax": 116.0,
-      "ymax": 10.6,
+      "ymax": 21.6,
       "zmax": 56.0
     },
     "front_insert_seat_material_mm3": [

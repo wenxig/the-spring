@@ -80,7 +80,7 @@ P = {
     "ec600x_height": 48.0,
     "ec600x_corner_radius": 2.5,
     "ec600x_x": 28.0,
-    "ec600x_y": 9.0,
+    "ec600x_y": 20.0,
     "ec600x_floor_z": 3.0,
     "ec600x_board_z": 8.0,
     "ec600x_thickness": 1.6,
