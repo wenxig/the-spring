@@ -139,7 +139,8 @@ void Frame::text_utf8_sized(std::uint16_t x, std::uint16_t y, const char* value,
     const auto codepoint = decode_utf8(input + offset, length - offset);
     if (codepoint.value < 0x80U) {
       char ascii[] = {static_cast<char>(codepoint.value), '\0'};
-      if (size == 16) text(cursor, y, ascii);
+      if (size == 16)
+        text(cursor, y, ascii);
       cursor = static_cast<std::uint16_t>(cursor + (size == 16 ? 6 : size));
     } else {
       const auto* begin = std::begin(detail::cjk_codepoints);
@@ -150,7 +151,8 @@ void Frame::text_utf8_sized(std::uint16_t x, std::uint16_t y, const char* value,
         for (std::uint16_t row{}; row < size; ++row)
           for (std::uint16_t column{}; column < size; ++column) {
             const auto scaled_row = static_cast<std::uint16_t>(row * detail::cjk_glyph_size / size);
-            const auto scaled_column = static_cast<std::uint16_t>(column * detail::cjk_glyph_size / size);
+            const auto scaled_column =
+                static_cast<std::uint16_t>(column * detail::cjk_glyph_size / size);
             const auto bits = found == end
                                   ? 0U
                                   : detail::cjk_glyphs[glyph * detail::cjk_glyph_bytes +
@@ -294,18 +296,46 @@ void Router::render(Frame& f, const Snapshot& s) const {
   f.clear();
   f.box({0, 0, kWidth, kHeight});
   if (route_ == Route::clock) {
-    char time[6] = {static_cast<char>('0' + s.hour / 10), static_cast<char>('0' + s.hour % 10), ':',
-                    static_cast<char>('0' + s.minute / 10), static_cast<char>('0' + s.minute % 10), '\0'};
-    f.text_scaled(74, 45, time, 8);
-    constexpr const char* weekdays[] = {"星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"};
-    constexpr std::uint16_t weekday_left = 319;
-    constexpr std::uint16_t weekday_x = 323;
-    constexpr std::uint16_t weekday_y = 16;
-    const auto weekday = static_cast<std::uint8_t>(s.weekday % 7);
-    f.box({weekday_left, 0, 1, 224});
-    f.box({static_cast<std::uint16_t>(weekday_left + 1), static_cast<std::uint16_t>(weekday_y + weekday * 20 - 2), 62, 20});
-    for (std::uint8_t index{}; index < 7; ++index)
-      f.text_utf8(weekday_x, static_cast<std::uint16_t>(weekday_y + index * 20), weekdays[index]);
+    char time[6] = {
+        static_cast<char>('0' + s.hour / 10),   static_cast<char>('0' + s.hour % 10),   ':',
+        static_cast<char>('0' + s.minute / 10), static_cast<char>('0' + s.minute % 10), '\0'};
+    f.text_scaled(24, 45, time, 8);
+    constexpr const char* weekdays[] = {"星期日", "星期一", "星期二", "星期三",
+                                        "星期四", "星期五", "星期六"};
+    constexpr std::uint16_t calendar_left = 270;
+    constexpr std::uint16_t calendar_inset = 284;
+    f.box({calendar_left, 0, 1, 224});
+    constexpr std::array<std::uint16_t, 16> location_pin{0x0F0, 0x318, 0x60C, 0x406, 0x486, 0x5C6,
+                                                         0x486, 0x406, 0x60C, 0x318, 0x318, 0x1B0,
+                                                         0x1B0, 0x0E0, 0x0E0, 0x040};
+    for (std::uint16_t row{}; row < location_pin.size(); ++row)
+      for (std::uint16_t column{}; column < 12; ++column)
+        if ((location_pin[row] & (0x800U >> column)) != 0)
+          f.pixel(calendar_inset + column, 24 + row);
+    auto location = s.location_name;
+    location.back() = '\0';
+    f.text_utf8_sized(
+        301, 25,
+        location.front() == '\0' ? (s.locating ? "定位中" : "位置待更新") : location.data(), 12);
+    f.box({calendar_inset, 53, 101, 1});
+    f.text_utf8_sized(calendar_inset, 67, weekdays[s.weekday % 7], 22);
+    char year[8]{};
+    std::snprintf(year, sizeof(year), "%u", s.year);
+    f.text_scaled(calendar_inset, 103, year, 2);
+    constexpr std::uint16_t date_y = 139;
+    const auto draw_date_part = [&](std::uint16_t center, std::uint8_t value, const char* label) {
+      char number[4]{};
+      std::snprintf(number, sizeof(number), "%u", value);
+      constexpr auto scale = std::uint8_t{4};
+      const auto width = static_cast<std::uint16_t>(scaled_text_width(number, scale) - scale);
+      f.text_scaled(static_cast<std::uint16_t>(center - width / 2), date_y, number, scale);
+      f.text_utf8_sized(static_cast<std::uint16_t>(center - 7), 183, label, 14);
+    };
+    draw_date_part(309, s.month, "月");
+    draw_date_part(365, s.day, "日");
+    for (std::uint16_t row{}; row < 28; ++row)
+      for (std::uint16_t stroke{}; stroke < 3; ++stroke)
+        f.pixel(static_cast<std::uint16_t>(341 - row / 3 + stroke), date_y + row);
     constexpr std::uint16_t bottom_top = 224;
     f.box({0, bottom_top, kWidth, 1});
     f.box({100, bottom_top, 1, static_cast<std::uint16_t>(kHeight - bottom_top)});

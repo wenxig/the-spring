@@ -14,7 +14,8 @@ int main(int argc, char** argv) {
                                       .forecast = {{{.hour = 18, .temperature_c = 26, .description = "晴"},
                                                     {.hour = 21, .temperature_c = 24, .description = "多云"},
                                                     {.hour = 0, .temperature_c = 22, .description = "小雨"},
-                                                    {.hour = 3, .temperature_c = 21, .description = "晴"}}}};
+                                                    {.hour = 3, .temperature_c = 21, .description = "晴"}}},
+                                      .location_name = {"河北·秦皇岛"}};
   spring::ui::Router router;
   spring::ui::Frame frame;
   router.render(frame, snapshot);

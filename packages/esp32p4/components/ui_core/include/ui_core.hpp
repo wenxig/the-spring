@@ -21,6 +21,7 @@ struct Snapshot {
   bool weather_valid{};
   std::uint8_t forecast_count{};
   std::array<ForecastPoint, kForecastSlots> forecast{};
+  std::array<char, 64> location_name{};
 };
 struct Rect { std::uint16_t x{}, y{}, width{}, height{}; };
 class Frame {
