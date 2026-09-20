@@ -20,3 +20,14 @@
 ## 暂存兼容层
 
 在生成器接入前，现有 `Router::render` 仍作为 buffer-only 仿真后端，保证电子纸图案测试和板端帧采集链路可用。迁移页面时逐页替换该后端，直到所有 screen 都由生成的 LVGL UI 驱动。
+## 布局预览
+
+默认 `reference` 按 400×300 面板实现参考比例：日期栏起点 x=270，天气横线 y=174，四张天气卡片等宽。`ClockHeader`、`DatePanel`、`ForecastCard` 共享动态绑定。日期的月份与日分别居中，定位文字通过 TinyTTF 字宽测量在 13–10 px 内适配，超长内容使用省略号。
+
+`UI_LAYOUT_VARIANT` 可选 `reference`、`large-time`、`weather-focus`，变量来自 `ui_xml/variants`。预览命令生成三种布局的正常、长文本/负温度、等待数据、高考期间画面，结束后恢复默认布局：
+
+```sh
+uv run --with pillow python packages/epaper-simulator/render_previews.py --output .planning/2026-09-20-layout-reference/previews
+```
+
+PNG 与 PBM 均为 400×300 黑白双态。预览数据为确定性样例，板端使用服务快照；定位未获取时显示“位置待更新”。

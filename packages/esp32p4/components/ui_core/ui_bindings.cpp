@@ -231,7 +231,18 @@ public:
         lv_obj_set_pos(object, element.x, element.y);
         lv_obj_set_size(object, element.width, element.height);
         lv_obj_set_style_text_color(object, lv_color_black(), 0);
-        lv_obj_set_style_text_font(object, font_for(element.size), 0);
+        auto size = element.size;
+        if (element.binding == "snapshot.location") {
+          auto extent = lv_point_t{};
+          for (;;) {
+            lv_text_get_size(&extent, value, font_for(size), 0, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
+            if (extent.x <= element.width || size <= 10)
+              break;
+            --size;
+          }
+          lv_label_set_long_mode(object, LV_LABEL_LONG_DOT);
+        }
+        lv_obj_set_style_text_font(object, font_for(size), 0);
         lv_obj_set_style_text_align(
             object, element.centered ? LV_TEXT_ALIGN_CENTER : LV_TEXT_ALIGN_LEFT, 0);
       } else {

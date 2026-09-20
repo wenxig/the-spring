@@ -3,10 +3,11 @@
 #include "ui_core.hpp"
 
 #include <fstream>
+#include <iostream>
 #include <string>
 #include <string_view>
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv) try {
   const auto path = std::string{argc > 1 ? argv[1] : "clock.pbm"};
   const auto mode = std::string_view{argc > 2 ? argv[2] : "sample"};
   const auto fallback = mode == "fallback";
@@ -65,4 +66,7 @@ int main(int argc, char** argv) {
   out.write(reinterpret_cast<const char*>(bytes.data()),
             static_cast<std::streamsize>(bytes.size()));
   return out.good() && bytes.size() == spring::ui::kBytes ? 0 : 1;
+} catch (const std::exception& error) {
+  std::cerr << "Preview failed: " << error.what() << '\n';
+  return 1;
 }
