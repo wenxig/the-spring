@@ -14,6 +14,7 @@
 #include "storage_service.hpp"
 #include "ui_core.hpp"
 #include "wifi_service.hpp"
+#include "weather_service.hpp"
 
 namespace {
 void interaction_task(void*) {
@@ -46,7 +47,7 @@ void clock_refresh_task(void*) {
     vTaskDelay(pdMS_TO_TICKS(1'000));
     const auto minute = static_cast<std::uint8_t>((spring::clock::now().unix_seconds / 60) % 60);
     const auto modem_revision = spring::modem::snapshot().revision;
-    const auto weather_revision = spring::network::weather().revision;
+    const auto weather_revision = spring::weather::snapshot().revision;
     if (spring::power::state() == spring::power::State::active &&
         (minute != last_minute || modem_revision != last_modem_revision ||
          weather_revision != last_weather_revision)) {
@@ -85,6 +86,8 @@ extern "C" void app_main() {
   spring::wifi::start();
   spring::network::register_transport(spring::network::Link::wifi, spring::wifi::transport());
   spring::network::start();
+  spring::weather::start();
+  spring::app::start_weather_polling();
   spring::power::start();
   xTaskCreate(interaction_task, "interaction", 24576, nullptr, 5, nullptr);
   xTaskCreate(clock_refresh_task, "clock_refresh", 24576, nullptr, 4, nullptr);

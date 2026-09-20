@@ -1,4 +1,4 @@
-menu "the-spring network"
+menu "the-spring weather"
 
 config SPRING_OPENWEATHER_API_KEY
     string "OpenWeather API key"

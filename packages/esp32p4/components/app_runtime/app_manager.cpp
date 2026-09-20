@@ -6,9 +6,10 @@
 #include "display_service.hpp"
 #include "clock_service.hpp"
 #include "at_engine.hpp"
-#include "network_service.hpp"
+#include "weather_service.hpp"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
+#include "freertos/task.h"
 #include <array>
 #include <algorithm>
 #include <cstdio>
@@ -25,11 +26,27 @@ SemaphoreHandle_t render_lock = nullptr;
 EXT_RAM_BSS_ATTR spring::ui::Frame render_frame;
 constexpr std::size_t kFramePacketSize = 4U + 2U + 4U + 4U + 4U + spring::display::kFrameBytes + 4U;
 EXT_RAM_BSS_ATTR std::array<std::uint8_t, kFramePacketSize> frame_packet{};
+TaskHandle_t weather_poll_task_handle{nullptr};
+
+void weather_poll_task(void*) {
+  spring::weather::refresh();
+  while (true) {
+    vTaskDelay(pdMS_TO_TICKS(600'000));
+    spring::weather::refresh();
+  }
+}
 }
 
 void spring::app::start() {
   render_lock = xSemaphoreCreateMutex();
   ESP_LOGI(kTag, "application runtime ready");
+}
+
+void spring::app::start_weather_polling() {
+  if (weather_poll_task_handle != nullptr) {
+    return;
+  }
+  xTaskCreate(weather_poll_task, "weather_poll", 8192, nullptr, 3, &weather_poll_task_handle);
 }
 
 bool spring::app::register_application(Application& application) {
@@ -68,7 +85,7 @@ void spring::app::render() {
   snapshot.registered = modem.registered;
   snapshot.locating = !modem.location_valid;
   snapshot.in_call = modem.call_active;
-  const auto local_weather = spring::network::weather();
+  const auto local_weather = spring::weather::snapshot();
   if (local != nullptr) {
     snapshot.year = static_cast<std::uint16_t>(local->tm_year + 1900);
     snapshot.month = static_cast<std::uint8_t>(local->tm_mon + 1);

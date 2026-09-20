@@ -14,6 +14,7 @@ class Application {
 };
 
 void start();
+void start_weather_polling();
 bool register_application(Application& application);
 bool navigate_home();
 bool dispatch(spring::ui::Event event);
