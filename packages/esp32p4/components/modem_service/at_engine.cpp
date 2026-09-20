@@ -14,6 +14,7 @@
 #include "http_transport.hpp"
 #include "sdkconfig.h"
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cstdio>
@@ -29,6 +30,7 @@ std::mutex state_mutex;
 std::timed_mutex transaction_mutex;
 std::atomic_bool started{};
 std::atomic_bool online{};
+std::atomic_bool at_ready{};
 std::atomic_bool disconnected{};
 std::atomic<esp_netif_t*> ppp_netif{};
 std::unique_ptr<esp_modem::DCE> dce;
@@ -71,13 +73,17 @@ void process_lines(std::string_view text) {
 }
 
 Result command_locked(std::string_view command, std::uint32_t timeout, std::string& response) {
+  constexpr auto kMaxResponseBytes = std::size_t{4096};
   response.clear();
   if (!dce || disconnected.load())
     return Result::transport_error;
   const auto result = dce->command(
-      std::string{command} + "\r\n",
+      std::string{command} + "\r",
       [&](std::uint8_t* data, std::size_t size) {
-        response.append(reinterpret_cast<const char*>(data), size);
+        // esp_modem supplies the complete accumulated response on each callback.
+        response.assign(reinterpret_cast<const char*>(data), std::min(size, kMaxResponseBytes));
+        if (size > kMaxResponseBytes || response.find('\0') != std::string::npos)
+          return esp_modem::command_result::FAIL;
         if (response.find("\nOK\r") != std::string::npos || response == "OK\r\n")
           return esp_modem::command_result::OK;
         if (response.find("\nERROR\r") != std::string::npos ||
@@ -86,11 +92,11 @@ Result command_locked(std::string_view command, std::uint32_t timeout, std::stri
         return esp_modem::command_result::TIMEOUT;
       },
       timeout);
-  process_lines(response);
+  if (response.find('\0') == std::string::npos)
+    process_lines(response);
   ESP_LOGI(kTag, "AT command '%.*s' result=%d response_bytes=%u", static_cast<int>(command.size()),
            command.data(), static_cast<int>(result), static_cast<unsigned>(response.size()));
-  if (result != esp_modem::command_result::OK && !response.empty())
-    ESP_LOGW(kTag, "AT response: %.*s", static_cast<int>(response.size()), response.data());
+
   if (result == esp_modem::command_result::OK)
     return Result::ok;
   if (result == esp_modem::command_result::TIMEOUT)
@@ -148,6 +154,7 @@ void modem_task(void*) {
       std::lock_guard lock(transaction_mutex);
       if (disconnected.exchange(false)) {
         link_state(false);
+        at_ready.store(false);
         dce.reset();
       }
       if (!dce) {
@@ -156,6 +163,7 @@ void modem_task(void*) {
         if (dte) {
           ESP_LOGI(kTag, "EC600M AT CDC-ACM port opened");
           dte->set_error_cb([](esp_modem::terminal_error error) {
+            at_ready.store(false);
             link_state(false, static_cast<int>(error) + 100);
             disconnected.store(true);
           });
@@ -176,7 +184,10 @@ void modem_task(void*) {
         if (dce->get_mode() == esp_modem::modem_mode::DATA_MODE)
           (void)dce->set_mode(esp_modem::modem_mode::COMMAND_MODE);
         std::string response;
-        if (command_locked("AT", 1500, response) == Result::ok) {
+        at_ready.store(command_locked("AT", 1500, response) == Result::ok);
+        if (at_ready.load()) {
+          if (command_locked("ATI", 1500, response) == Result::ok)
+            ESP_LOGI(kTag, "modem identity: %s", response.c_str());
           (void)command_locked("ATE0", 1500, response);
           (void)command_locked("AT+CEREG=2", 1500, response);
           (void)command_locked("AT+CEREG?", 1500, response);
@@ -244,7 +255,7 @@ Result spring::modem::execute_capture(std::string_view command, std::uint32_t ti
   std::unique_lock lock(transaction_mutex, std::defer_lock);
   if (!lock.try_lock_for(std::chrono::milliseconds{timeout}))
     return Result::timeout;
-  if (!dce || disconnected.load())
+  if (!dce || disconnected.load() || !at_ready.load())
     return Result::transport_error;
 #if CONFIG_SPRING_MODEM_USE_UART
   constexpr auto single_port = true;
