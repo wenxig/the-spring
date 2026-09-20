@@ -25,8 +25,9 @@ config SPRING_MODEM_USB_AT_INTERFACE
     help
         EC600M accepts AT commands only on its dedicated vendor-specific bulk
         interface. This is the primary esp_modem terminal and must match the
-        modem USB descriptor. Interface 3 is the verified default for
-        EC600MCNLER06A08M08.
+        modem USB descriptor. Interface 3 is the validated default for
+        EC600MCNLER06A08M08; set this to the descriptor's dedicated AT port
+        when firmware exposes a different interface.
 
 config SPRING_MODEM_USB_SECONDARY_INTERFACE
     int "EC600M USB secondary data interface"

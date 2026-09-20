@@ -2,17 +2,17 @@
 
 #include "cxx_include/esp_modem_api.hpp"
 #include "cxx_include/esp_modem_dte.hpp"
-#include "cxx_include/esp_modem_usb_api.hpp"
 #include "esp_event.h"
 #include "esp_log.h"
 #include "esp_modem_config.h"
-#include "esp_modem_usb_config.h"
 #include "esp_netif.h"
 #include "esp_netif_ppp.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "http_transport.hpp"
 #include "sdkconfig.h"
+#include "usb/cdc_acm_host.h"
+#include "usb/usb_host.h"
 
 #include <algorithm>
 #include <atomic>
@@ -34,6 +34,140 @@ std::atomic_bool at_ready{};
 std::atomic_bool disconnected{};
 std::atomic<esp_netif_t*> ppp_netif{};
 std::unique_ptr<esp_modem::DCE> dce;
+
+TaskHandle_t usb_host_task_handle{};
+std::once_flag usb_host_init_once;
+esp_err_t usb_host_init_result{ESP_FAIL};
+
+void usb_host_task(void*) {
+  while (true) {
+    std::uint32_t event_flags{};
+    usb_host_lib_handle_events(portMAX_DELAY, &event_flags);
+    if ((event_flags & USB_HOST_LIB_EVENT_FLAGS_NO_CLIENTS) != 0)
+      usb_host_device_free_all();
+  }
+}
+
+bool install_usb_host() {
+  std::call_once(usb_host_init_once, [] {
+    usb_host_config_t host_config{};
+    host_config.skip_phy_setup = false;
+    host_config.intr_flags = ESP_INTR_FLAG_LEVEL1;
+    auto err = usb_host_install(&host_config);
+    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
+      ESP_LOGE(kTag, "USB host install failed: %s", esp_err_to_name(err));
+      usb_host_init_result = err;
+      return;
+    }
+    if (xTaskCreate(usb_host_task, "usb_host", 4096, nullptr, 10, &usb_host_task_handle) !=
+        pdPASS) {
+      ESP_LOGE(kTag, "USB host task creation failed");
+      usb_host_init_result = ESP_ERR_NO_MEM;
+      return;
+    }
+
+    cdc_acm_host_driver_config_t driver_config{};
+    driver_config.driver_task_stack_size = 4096;
+    driver_config.driver_task_priority = 10;
+    driver_config.xCoreID = 0;
+    err = cdc_acm_host_install(&driver_config);
+    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
+      ESP_LOGE(kTag, "CDC-ACM host install failed: %s", esp_err_to_name(err));
+      usb_host_init_result = err;
+      return;
+    }
+    usb_host_init_result = ESP_OK;
+    ESP_LOGI(kTag, "historical CDC-ACM AT engine installed");
+  });
+  return usb_host_init_result == ESP_OK;
+}
+
+#if !CONFIG_SPRING_MODEM_USE_UART
+class HistoricalUsbTerminal final : public esp_modem::Terminal {
+public:
+  HistoricalUsbTerminal() {
+    if (!install_usb_host())
+      return;
+
+    cdc_acm_host_device_config_t device_config{};
+    device_config.connection_timeout_ms = 5000;
+    device_config.out_buffer_size = 512;
+    device_config.in_buffer_size = 2048;
+    device_config.event_cb = &on_event;
+    device_config.data_cb = &on_rx;
+    device_config.user_arg = this;
+    const auto err =
+        cdc_acm_host_open(CONFIG_SPRING_MODEM_USB_VID, CONFIG_SPRING_MODEM_USB_PID,
+                          CONFIG_SPRING_MODEM_USB_AT_INTERFACE, &device_config, &cdc_device_);
+    if (err != ESP_OK) {
+      ESP_LOGE(kTag, "EC600M dedicated AT port open failed: %s", esp_err_to_name(err));
+      return;
+    }
+
+    cdc_acm_line_coding_t line_coding{};
+    line_coding.dwDTERate = 115200;
+    line_coding.bCharFormat = 0;
+    line_coding.bParityType = 0;
+    line_coding.bDataBits = 8;
+    const auto coding_err = cdc_acm_host_line_coding_set(cdc_device_, &line_coding);
+    const auto control_err = cdc_acm_host_set_control_line_state(cdc_device_, true, true);
+    ESP_LOGI(kTag, "EC600M dedicated AT port opened on interface %d (coding=%s control=%s)",
+             CONFIG_SPRING_MODEM_USB_AT_INTERFACE, esp_err_to_name(coding_err),
+             esp_err_to_name(control_err));
+  }
+
+  ~HistoricalUsbTerminal() override {
+    if (cdc_device_ != nullptr) {
+      cdc_acm_host_close(cdc_device_);
+      cdc_device_ = nullptr;
+    }
+  }
+
+  [[nodiscard]] bool ready() const { return cdc_device_ != nullptr; }
+
+  int write(std::uint8_t* data, std::size_t len) override {
+    if (cdc_device_ == nullptr || data == nullptr || len == 0)
+      return -1;
+    ESP_LOG_BUFFER_HEXDUMP(kTag, data, len, ESP_LOG_DEBUG);
+    const auto err = cdc_acm_host_data_tx_blocking(cdc_device_, data, len, 1000);
+    if (err != ESP_OK) {
+      ESP_LOGE(kTag, "AT TX failed: %s", esp_err_to_name(err));
+      return -1;
+    }
+    return static_cast<int>(len);
+  }
+
+  int read(std::uint8_t*, std::size_t) override { return -1; }
+  void start() override {}
+  void stop() override {}
+
+private:
+  static bool on_rx(const std::uint8_t* data, std::size_t len, void* user_arg) {
+    auto* terminal = static_cast<HistoricalUsbTerminal*>(user_arg);
+    ESP_LOG_BUFFER_HEXDUMP(kTag, data, len, ESP_LOG_DEBUG);
+    if (terminal == nullptr || terminal->on_read == nullptr) {
+      ESP_LOGW(kTag, "AT RX dropped: DTE callback is not installed");
+      return true;
+    }
+    return terminal->on_read(const_cast<std::uint8_t*>(data), len);
+  }
+
+  static void on_event(const cdc_acm_host_dev_event_data_t* event, void* user_arg) {
+    auto* terminal = static_cast<HistoricalUsbTerminal*>(user_arg);
+    if (terminal == nullptr || event == nullptr)
+      return;
+    if (event->type == CDC_ACM_HOST_DEVICE_DISCONNECTED) {
+      terminal->cdc_device_ = nullptr;
+      if (terminal->on_error != nullptr)
+        terminal->on_error(esp_modem::terminal_error::DEVICE_GONE);
+    } else if (event->type == CDC_ACM_HOST_ERROR && terminal->on_error != nullptr) {
+      terminal->on_error(esp_modem::terminal_error::UNEXPECTED_CONTROL_FLOW);
+    }
+  }
+
+  cdc_acm_dev_hdl_t cdc_device_{};
+};
+#endif
 
 void link_state(bool connected, int error = 0) {
   online.store(connected);
@@ -116,21 +250,18 @@ std::shared_ptr<esp_modem::DTE> create_dte() {
   config.uart_config.cts_io_num = UART_PIN_NO_CHANGE;
   return esp_modem::create_uart_dte(&config);
 #else
-  esp_modem_usb_term_config usb{};
-  usb.vid = CONFIG_SPRING_MODEM_USB_VID;
-  usb.pid = CONFIG_SPRING_MODEM_USB_PID;
-  usb.interface_idx = CONFIG_SPRING_MODEM_USB_AT_INTERFACE;
-  usb.secondary_interface_idx = CONFIG_SPRING_MODEM_USB_SECONDARY_INTERFACE;
-  usb.timeout_ms = 5000;
-  usb.install_usb_host = true;
-  const esp_modem_dte_config_t config = ESP_MODEM_DTE_DEFAULT_USB_CONFIG(usb);
-  return esp_modem::create_usb_dte(&config);
+  esp_modem_dte_config_t config = ESP_MODEM_DTE_DEFAULT_CONFIG();
+  auto terminal = std::make_unique<HistoricalUsbTerminal>();
+  if (!terminal->ready())
+    return nullptr;
+  return std::make_shared<esp_modem::DTE>(&config, std::move(terminal));
 #endif
 }
 
 void modem_task(void*) {
   ESP_LOGI(kTag,
-           "modem task started; EC600M dedicated AT bulk port VID=0x%04x PID=0x%04x interface=%d secondary=%d",
+           "modem task started; EC600M dedicated AT bulk port VID=0x%04x PID=0x%04x interface=%d "
+           "secondary=%d",
            CONFIG_SPRING_MODEM_USB_VID, CONFIG_SPRING_MODEM_USB_PID,
            CONFIG_SPRING_MODEM_USB_AT_INTERFACE, CONFIG_SPRING_MODEM_USB_SECONDARY_INTERFACE);
   const auto netif_result = esp_netif_init();
