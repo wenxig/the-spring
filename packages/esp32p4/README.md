@@ -50,4 +50,4 @@ idf.py -C packages/esp32p4 menuconfig
 
 ## 网络验收
 
-蜂窝 USB 配置默认使用 VID `0x2C7C`、PID `0x6002`、EC600M AT CDC-ACM 接口 3。EC600M 的 AT 命令只能从这个指定 AT 端口进入，不能从任意 CDC 接口或 PPP 数据通道发送控制命令；如 EC600MCNLE 固件暴露不同端口，使用 `CONFIG_SPRING_MODEM_USB_AT_INTERFACE` 调整。`CONFIG_SPRING_MODEM_USB_SECONDARY_INTERFACE=-1` 表示 PPP 与 AT 共用该端口。板上电并枚举 USB 后，日志应出现 `EC600M AT CDC-ACM port opened`、PPP IPv4 和蜂窝 link up。业务请求通过 `spring::network::get/post/put/patch/del` 发起，天气在启动时刷新并每 10 分钟轮询。
+蜂窝 USB 配置默认使用 VID `0x2C7C`、PID `0x6002`、EC600M 专用 AT 接口 4。EC600M 的 AT 命令只能从这个指定 AT 端口进入，不能从 ECM、诊断接口或 PPP 数据通道发送控制命令；如 EC600MCNLE 固件暴露不同端口，使用 `CONFIG_SPRING_MODEM_USB_AT_INTERFACE` 调整。`CONFIG_SPRING_MODEM_USB_SECONDARY_INTERFACE=-1` 表示 PPP 与 AT 共用该端口。当前实机验证显示接口可被 USB CDC 驱动打开，但尚未收到 `AT` 响应；需继续核对专用接口的 USB bulk 端点或改用 J5 主串口 AT 口。业务请求通过 `spring::network::get/post/put/patch/del` 发起，天气在启动时刷新并每 10 分钟轮询。
