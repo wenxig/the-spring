@@ -1,0 +1,29 @@
+menu "the-spring modem"
+
+config SPRING_MODEM_USE_UART
+    bool "Use UART DTE instead of USB"
+    default n
+    help
+        Keep the UART DTE as an explicit compatibility path. USB Host CDC-ACM is the default.
+
+config SPRING_MODEM_APN
+    string "Cellular APN"
+    default "CMNET"
+
+config SPRING_MODEM_USB_VID
+    hex "USB modem vendor ID"
+    default 0x2C7C
+
+config SPRING_MODEM_USB_PID
+    hex "USB modem product ID"
+    default 0x6002
+
+config SPRING_MODEM_USB_INTERFACE
+    int "USB modem AT interface"
+    default 3
+
+config SPRING_MODEM_USB_SECONDARY_INTERFACE
+    int "USB modem secondary data interface"
+    default -1
+
+endmenu

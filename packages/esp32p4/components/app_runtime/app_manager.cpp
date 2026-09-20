@@ -1,22 +1,23 @@
-#include "esp_log.h"
 #include "app_runtime.hpp"
-#include "ui_core.hpp"
+#include "at_engine.hpp"
 #include "calendar.hpp"
+#include "clock_service.hpp"
 #include "declarative_ui.hpp"
 #include "display_service.hpp"
-#include "clock_service.hpp"
-#include "at_engine.hpp"
-#include "weather_service.hpp"
+#include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
-#include <array>
+#include "ui_core.hpp"
+#include "weather_service.hpp"
+
 #include <algorithm>
-#include <cstdio>
+#include <array>
+#include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <ctime>
-#include <cmath>
 
 namespace {
 constexpr char kTag[] = "app_manager";
@@ -24,39 +25,28 @@ spring::app::Application* current = nullptr;
 spring::ui::Router router;
 SemaphoreHandle_t render_lock = nullptr;
 EXT_RAM_BSS_ATTR spring::ui::Frame render_frame;
+#if CONFIG_SPRING_DISPLAY_BUFFER_ONLY
 constexpr std::size_t kFramePacketSize = 4U + 2U + 4U + 4U + 4U + spring::display::kFrameBytes + 4U;
 EXT_RAM_BSS_ATTR std::array<std::uint8_t, kFramePacketSize> frame_packet{};
-TaskHandle_t weather_poll_task_handle{nullptr};
+#endif
 
-void weather_poll_task(void*) {
-  spring::weather::refresh();
-  while (true) {
-    vTaskDelay(pdMS_TO_TICKS(600'000));
-    spring::weather::refresh();
-  }
-}
-}
+} // namespace
 
 void spring::app::start() {
   render_lock = xSemaphoreCreateMutex();
   ESP_LOGI(kTag, "application runtime ready");
 }
 
-void spring::app::start_weather_polling() {
-  if (weather_poll_task_handle != nullptr) {
-    return;
-  }
-  xTaskCreate(weather_poll_task, "weather_poll", 8192, nullptr, 3, &weather_poll_task_handle);
-}
-
 bool spring::app::register_application(Application& application) {
   ESP_LOGI(kTag, "registered application: %s", application.name());
-  if (current == nullptr) current = &application;
+  if (current == nullptr)
+    current = &application;
   return true;
 }
 
 bool spring::app::navigate_home() {
-  if (current == nullptr) return false;
+  if (current == nullptr)
+    return false;
   router.dispatch(spring::ui::Event::home);
   current->on_event(0);
   render();
@@ -65,12 +55,14 @@ bool spring::app::navigate_home() {
 
 bool spring::app::dispatch(spring::ui::Event event) {
   const auto accepted = router.dispatch(event);
-  if (accepted) render();
+  if (accepted)
+    render();
   return accepted;
 }
 
 void spring::app::render() {
-  if (render_lock == nullptr || xSemaphoreTake(render_lock, portMAX_DELAY) != pdTRUE) return;
+  if (render_lock == nullptr || xSemaphoreTake(render_lock, portMAX_DELAY) != pdTRUE)
+    return;
   const auto clock = spring::clock::now();
   const auto modem = spring::modem::snapshot();
   const auto timestamp = static_cast<std::time_t>(clock.unix_seconds);
@@ -91,7 +83,8 @@ void spring::app::render() {
     snapshot.month = static_cast<std::uint8_t>(local->tm_mon + 1);
     snapshot.day = static_cast<std::uint8_t>(local->tm_mday);
     snapshot.weekday = static_cast<std::uint8_t>(local->tm_wday);
-    snapshot.date_valid = local->tm_year >= 124 && local->tm_year < 200 && local->tm_mon >= 0 && local->tm_mon < 12 && local->tm_mday >= 1 && local->tm_mday <= 31;
+    snapshot.date_valid = local->tm_year >= 124 && local->tm_year < 200 && local->tm_mon >= 0 &&
+                          local->tm_mon < 12 && local->tm_mday >= 1 && local->tm_mday <= 31;
     if (snapshot.date_valid) {
       const auto exam = spring::ui::exam_countdown(snapshot.year, snapshot.month, snapshot.day);
       snapshot.countdown_days = exam.days;
@@ -105,17 +98,22 @@ void spring::app::render() {
     snapshot.forecast[index].temperature_c = local_weather.forecast[index].temperature_c;
     snapshot.forecast[index].temperature_low_c = local_weather.forecast[index].temperature_low_c;
     snapshot.forecast[index].temperature_high_c = local_weather.forecast[index].temperature_high_c;
-    std::strncpy(snapshot.forecast[index].description.data(), local_weather.forecast[index].description.data(),
+    std::strncpy(snapshot.forecast[index].description.data(),
+                 local_weather.forecast[index].description.data(),
                  snapshot.forecast[index].description.size() - 1);
     snapshot.forecast[index].description.back() = '\0';
   }
-  #if CONFIG_SPRING_LVGL_DECLARATIVE_UI
+#if CONFIG_SPRING_LVGL_DECLARATIVE_UI
   spring::ui::render_declarative(render_frame, snapshot, router);
-  #else
+#else
   router.render(render_frame, snapshot);
-  #endif
+#endif
   spring::display::present(render_frame);
-  ESP_LOGI(kTag, "ui route=%s dirty=%ux%u+%u+%u frame=%08lx", spring::ui::Router::title(router.route()), spring::display::pending_area().x, spring::display::pending_area().y, spring::display::pending_area().width, spring::display::pending_area().height, static_cast<unsigned long>(spring::display::frame_checksum()));
+  ESP_LOGI(kTag, "ui route=%s dirty=%ux%u+%u+%u frame=%08lx",
+           spring::ui::Router::title(router.route()), spring::display::pending_area().x,
+           spring::display::pending_area().y, spring::display::pending_area().width,
+           spring::display::pending_area().height,
+           static_cast<unsigned long>(spring::display::frame_checksum()));
 #if CONFIG_SPRING_DISPLAY_BUFFER_ONLY
   static std::uint32_t frame_id = 0;
   const auto bytes = spring::display::frame_bytes();
@@ -140,6 +138,7 @@ void spring::app::render() {
   std::fwrite(frame_packet.data(), offset, 1, stdout);
   std::fflush(stdout);
 #endif
-  if (spring::display::healthy()) spring::display::complete_refresh();
+  if (spring::display::healthy())
+    spring::display::complete_refresh();
   xSemaphoreGive(render_lock);
 }

@@ -1,9 +1,9 @@
 #include "wifi_service.hpp"
 
 #include "clock_service.hpp"
-#include "esp_event.h"
 #include "esp_crt_bundle.h"
 #include "esp_err.h"
+#include "esp_event.h"
 #include "esp_hosted.h"
 #include "esp_http_client.h"
 #include "esp_log.h"
@@ -13,12 +13,13 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
 #include "freertos/task.h"
+#include "http_transport.hpp"
 #include "network_service.hpp"
 #include "nvs_flash.h"
 
 #include <algorithm>
-#include <atomic>
 #include <array>
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -38,141 +39,14 @@ constexpr EventBits_t kFailed = BIT1;
 EventGroupHandle_t wifi_events = nullptr;
 std::atomic_bool wifi_connected{false};
 
-spring::network::TransportError map_error(esp_err_t error) {
-  if (error == ESP_ERR_TIMEOUT) {
-    return spring::network::TransportError::timeout;
-  }
-  if (error == ESP_ERR_HTTP_CONNECT || error == ESP_ERR_HTTP_FETCH_HEADER) {
-    return spring::network::TransportError::connection;
-  }
-  return spring::network::TransportError::io;
-}
-
-esp_http_client_method_t http_method(spring::network::Method method) {
-  switch (method) {
-  case spring::network::Method::get:
-    return HTTP_METHOD_GET;
-  case spring::network::Method::post:
-    return HTTP_METHOD_POST;
-  case spring::network::Method::put:
-    return HTTP_METHOD_PUT;
-  case spring::network::Method::patch:
-    return HTTP_METHOD_PATCH;
-  case spring::network::Method::delete_:
-    return HTTP_METHOD_DELETE;
-  }
-  return HTTP_METHOD_GET;
-}
-
+esp_netif_t* station_netif{};
 class WifiTransport final : public spring::network::HttpTransport {
 public:
-  [[nodiscard]] bool available() const noexcept override { return wifi_connected.load(); }
-
-  spring::network::TransportResult perform(
-      const spring::network::Request& request,
-      spring::network::CancellationToken cancellation) override {
-    spring::network::TransportResult result{};
-    result.response.link = spring::network::Link::wifi;
-    if (!available()) {
-      result.response.error = spring::network::TransportError::unavailable;
-      result.response.error_detail = "Wi-Fi is disconnected";
-      return result;
-    }
-    if (cancellation.cancelled()) {
-      result.response.error = spring::network::TransportError::cancelled;
-      return result;
-    }
-
-    struct Context {
-      spring::network::Response* response{};
-    } context{&result.response};
-    const auto url = request.url;
-    esp_http_client_config_t config{};
-    config.url = url.c_str();
-    config.timeout_ms = static_cast<int>(request.options.timeout.count());
-    config.max_redirection_count = request.options.max_redirects;
-    config.crt_bundle_attach = request.options.verify_tls ? esp_crt_bundle_attach : nullptr;
-    config.skip_cert_common_name_check = !request.options.verify_tls;
-    config.user_data = &context;
-    config.event_handler = [](esp_http_client_event_t* event) {
-      auto* context = static_cast<Context*>(event->user_data);
-      if (context == nullptr || context->response == nullptr) {
-        return ESP_OK;
-      }
-      if (event->event_id == HTTP_EVENT_ON_HEADER && event->header_key != nullptr &&
-          event->header_value != nullptr) {
-        context->response->headers.emplace_back(event->header_key, event->header_value);
-      }
-      return ESP_OK;
-    };
-
-    auto* client = esp_http_client_init(&config);
-    if (client == nullptr) {
-      result.response.error = spring::network::TransportError::io;
-      result.response.error_detail = "unable to allocate Wi-Fi HTTP client";
-      return result;
-    }
-    const auto cleanup = [&] { esp_http_client_cleanup(client); };
-    esp_http_client_set_method(client, http_method(request.method));
-    for (const auto& [key, value] : request.headers) {
-      if (esp_http_client_set_header(client, key.c_str(), value.c_str()) != ESP_OK) {
-        cleanup();
-        result.response.error = spring::network::TransportError::invalid_request;
-        result.response.error_detail = "invalid HTTP request header";
-        return result;
-      }
-    }
-
-    auto error = esp_http_client_open(client, static_cast<int>(request.body.size()));
-    if (error != ESP_OK) {
-      cleanup();
-      result.response.error = map_error(error);
-      result.response.error_detail = esp_err_to_name(error);
-      return result;
-    }
-    result.connection_established = true;
-    if (cancellation.cancelled()) {
-      esp_http_client_close(client);
-      cleanup();
-      result.response.error = spring::network::TransportError::cancelled;
-      return result;
-    }
-    if (!request.body.empty()) {
-      const auto written = esp_http_client_write(
-          client, reinterpret_cast<const char*>(request.body.data()),
-          static_cast<int>(request.body.size()));
-      if (written != static_cast<int>(request.body.size())) {
-        esp_http_client_close(client);
-        cleanup();
-        result.response.error = spring::network::TransportError::io;
-        result.response.error_detail = "short HTTP request body write";
-        return result;
-      }
-    }
-    error = esp_http_client_fetch_headers(client);
-    if (error < 0) {
-      esp_http_client_close(client);
-      cleanup();
-      result.response.error = map_error(error);
-      result.response.error_detail = esp_err_to_name(error);
-      return result;
-    }
-    result.response.status = esp_http_client_get_status_code(client);
-    std::array<char, 1024> buffer{};
-    while (!cancellation.cancelled()) {
-      const auto read = esp_http_client_read(client, buffer.data(), buffer.size());
-      if (read <= 0) {
-        break;
-      }
-      const auto* first = reinterpret_cast<const std::byte*>(buffer.data());
-      result.response.body.insert(result.response.body.end(), first, first + read);
-    }
-    esp_http_client_close(client);
-    cleanup();
-    if (cancellation.cancelled()) {
-      result.response.error = spring::network::TransportError::cancelled;
-    }
-    return result;
+  bool available() const noexcept override { return wifi_connected.load(); }
+  spring::network::TransportResult
+  perform(const spring::network::Request& request,
+          spring::network::CancellationToken cancellation) override {
+    return spring::http::perform(request, std::move(cancellation), station_netif);
   }
 };
 
@@ -288,7 +162,8 @@ void wifi_task(void*) {
     vTaskDelete(nullptr);
     return;
   }
-  if (esp_netif_create_default_wifi_sta() == nullptr) {
+  station_netif = esp_netif_create_default_wifi_sta();
+  if (station_netif == nullptr) {
     ESP_LOGE(kTag, "unable to create Wi-Fi STA netif");
     vTaskDelete(nullptr);
     return;
@@ -336,8 +211,6 @@ void spring::wifi::start() {
   xTaskCreate(wifi_task, "wifi_connect", 8192, nullptr, 5, nullptr);
 }
 
-void spring::wifi::set_connected(bool connected) {
-  wifi_connected.store(connected);
-}
+void spring::wifi::set_connected(bool connected) { wifi_connected.store(connected); }
 
 spring::network::HttpTransport& spring::wifi::transport() { return wifi_http_transport; }

@@ -1,18 +1,8 @@
 # 技术决策记录
 
-## 已确定
-
-- ESP-IDF：首版以 5.5 为基线，使用 ESP-IDF 原生 FreeRTOS、GPIO、SPI、UART 驱动。
-- OTA：采用 `otadata + ota_0 + ota_1` 双槽和应用回滚；服务器部署方式暂不实现，固件只保留 HTTPS OTA 客户端边界。
-- UI：LVGL 9；UI 任务独占 LVGL，显示 flush 通过电子纸适配层串行化。
-- UI 声明式源文件：采用 LVGL 9.5 XML 约定；LVGL 开源运行库不含 XML 解析器，生产构建使用 LVGL Pro 生成普通 LVGL C 代码，固件不依赖运行时 XML 解析。
-- Modem：`esp_modem` 封装 UART 和 AT 通道，应用层维护注册、拨号、URC 状态机。
-- 电子纸：`esp_epaper` 负责 SSD1683 时序；400x300、单色 15,000 字节帧缓冲。若其 managed component 与目标 IDF/LVGL 适配不稳定，将在项目内封装同一接口并锁定已验证版本。
-- 网络：上层只依赖 `NetworkClient` 的 GET/POST 接口；底层按 Wi-Fi 优先、蜂窝网络回退自动选择链路，链路断开时指数退避并恢复请求队列。
-- 数据：StorageService 使用 cJSON 和 SD 卡 JSON 文件保存事件；网络请求由独立服务执行。
-
-## 待讨论
-
-- Wi-Fi/C6 协处理器与蜂窝网络的凭据、优先级和计费策略。
-- NVS 加密、安全启动和证书存储策略。
-- MQTT 是否作为长期连接能力加入上层 GET/POST 之外的消息接口。
+- ESP-IDF 构建基线锁定为项目当前的 v6.0.2，目标为 ESP32-P4。
+- EC600MCNLE 默认使用 `espressif/esp_modem_usb_dte` 1.3.1、USB Host CDC-ACM、`esp_modem` 1.4.3 和 PPP；UART1/GPIO0-GPIO1 作为 Kconfig 兼容路径。
+- 网络公共 API 使用拥有型二进制 body、重复 header 列表、异步回调、请求取消和 Wi-Fi 优先/蜂窝单次 fallback。
+- HTTP transport 绑定具体 `esp_netif`，统一 TLS、重定向、超时和响应收集。
+- 天气服务与网络框架分离，启动立即刷新，之后每 10 分钟轮询；刷新失败保留上一份有效快照或 fallback。
+- OTA 保留双槽回滚配置；服务器部署方式不属于网络框架。

@@ -2,25 +2,22 @@
 
 ## 分层
 
-- **BSP/Drivers**：GPIO、SPI、UART、SDMMC、RTC 和板级电源，仅暴露硬件能力。
-- **System Services**：`InputService`、`DisplayService`、`StorageService`、`NetworkService`、`ModemService`、`ClockService`，负责生命周期、任务和资源所有权。
-- **Application Runtime**：应用注册表、应用生命周期、事件总线和当前应用路由。
-- **Apps**：数字时钟、网络状态、定位、通话、设置等产品功能，以应用接口访问系统服务。
+- **BSP/Drivers**：GPIO、SPI、UART、USB Host、SDMMC、RTC 和板级电源。
+- **System Services**：`network_service`、`wifi_service`、`modem_service`、`weather_service`、`DisplayService`、`StorageService` 和 `ClockService`。
+- **Application Runtime**：应用注册、事件分发、渲染与天气轮询任务。
+- **Apps**：数字时钟、网络状态、定位、通话和设置。
 
-## 应用模型
+`network_service` 只负责请求调度、取消、链路选择和统一响应。Wi-Fi、蜂窝硬件初始化分别由对应 service 持有；`weather_service` 负责天气 URL、JSON 解析、fallback、快照和 revision。`app_manager` 只读取天气快照，不依赖网络协议或 JSON。
 
-每个应用实现统一生命周期：`install`、`start`、`pause`、`resume`、`stop`，并声明名称、入口界面、需要订阅的事件和持久化命名空间。`AppManager` 同一时刻运行一个前台应用，可保留后台服务应用；S8 发送 `NavigateHome`，S7 发送 `SleepRequested`。
+## 启动顺序
 
-应用通过依赖注入获得 `SystemContext`，其中包含时钟、显示、输入、网络、存储、定位和通话接口。硬件总线和数据文件由服务统一管理。
+1. modem service 创建 USB CDC-ACM/PPP 管理任务。
+2. Wi-Fi service 初始化 ESP-Hosted C6 STA。
+3. 注册 Wi-Fi 与蜂窝 HTTP transport。
+4. 启动 network service。
+5. 启动天气服务和 10 分钟轮询。
+6. 启动 UI、输入和其他应用服务。
 
-## 事件与数据
+## 并发与所有权
 
-系统服务发布类型化事件，应用订阅后更新自身状态。跨模块事实通过统一快照和 revision 传递；StorageService 使用 cJSON 将选定事件持久化到 SD 卡 JSON 文件。
-
-## 资源与并发
-
-服务通过任务、队列和同步对象管理资源。显示链路串行访问 LVGL 和电子纸总线，ModemService 管理 AT 队列，StorageService 管理 JSON 数据文件。
-
-## 首版边界
-
-首版不做应用权限、安全策略、进程隔离或沙箱。应用运行在同一固件地址空间，模块边界通过 C++ 接口、依赖方向、任务所有权和代码审查维护。
+网络回调由 network task 串行执行。modem service 使用事务 mutex 保护 AT 命令、PPP 模式切换和蜂窝 HTTP。天气快照由 mutex 保护，轮询任务使用 `xTaskDelayUntil` 保持固定节奏。Wi-Fi 与蜂窝的状态事件只更新 transport 可用性，不直接触发业务。

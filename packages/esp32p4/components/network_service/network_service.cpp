@@ -4,239 +4,235 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
+#include <algorithm>
 #include <array>
-#include <atomic>
+#include <charconv>
+#include <climits>
 #include <deque>
 #include <mutex>
 #include <optional>
-#include <utility>
+#include <string_view>
 
 namespace {
-constexpr char kTag[] = "network";
-
+using namespace spring::network;
+using Clock = std::chrono::steady_clock;
 struct PendingRequest {
-  spring::network::RequestId id{};
-  spring::network::Request request;
-  spring::network::Completion completion;
+  RequestId id{};
+  Request request;
+  Completion completion;
   std::shared_ptr<std::atomic_bool> cancelled;
 };
-
-std::array<spring::network::HttpTransport*, 2> transports{};
+struct ActiveRequest {
+  RequestId id{};
+  std::shared_ptr<std::atomic_bool> cancelled;
+};
+std::array<HttpTransport*, 2> transports{};
 std::deque<PendingRequest> pending;
-std::optional<PendingRequest> active_request;
+std::optional<ActiveRequest> active;
 std::mutex state_mutex;
-std::atomic<spring::network::RequestId> next_id{1};
-TaskHandle_t worker_handle{nullptr};
+RequestId next_id{1};
+TaskHandle_t worker_handle{};
 
-constexpr std::size_t index_for(spring::network::Link link) noexcept {
-  return link == spring::network::Link::wifi ? 0U : 1U;
+std::array<HttpTransport*, 2> registered_transports() {
+  std::lock_guard lock(state_mutex);
+  return transports;
 }
 
-spring::network::HttpTransport* transport_for(spring::network::Link link) noexcept {
-  return transports[index_for(link)];
+bool valid_request(const Request& request) {
+  if ((!request.url.starts_with("http://") && !request.url.starts_with("https://")) ||
+      request.url.find_first_of("\r\n ") != std::string::npos ||
+      request.url.find('\0') != std::string::npos || request.options.timeout.count() <= 0 ||
+      request.options.timeout.count() > INT_MAX || request.body.size() > INT_MAX ||
+      request.method > Method::delete_)
+    return false;
+  for (const auto& [name, value] : request.headers) {
+    if (name.empty() ||
+        !std::ranges::all_of(name,
+                             [](unsigned char c) {
+                               return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+                                      (c >= '0' && c <= '9') ||
+                                      std::string_view{"!#$%&'*+-.^_`|~"}.find(
+                                          static_cast<char>(c)) != std::string_view::npos;
+                             }) ||
+        !std::ranges::all_of(value,
+                             [](unsigned char c) { return c == '\t' || (c >= 32 && c != 127); }))
+      return false;
+    auto lower = name;
+    std::ranges::transform(lower, lower.begin(), [](unsigned char c) {
+      return static_cast<char>(c >= 'A' && c <= 'Z' ? c + ('a' - 'A') : c);
+    });
+    if (lower == "transfer-encoding")
+      return false; // Complete bodies use Content-Length framing.
+    if (lower == "content-length") {
+      std::size_t length{};
+      const auto [end, error] = std::from_chars(value.data(), value.data() + value.size(), length);
+      if (error != std::errc{} || end != value.data() + value.size() ||
+          length != request.body.size())
+        return false;
+    }
+  }
+  return true;
 }
 
-bool is_connection_failure(const spring::network::TransportResult& result) noexcept {
-  return !result.connection_established &&
-         (result.response.error == spring::network::TransportError::unavailable ||
-          result.response.error == spring::network::TransportError::connection ||
-          result.response.error == spring::network::TransportError::dns ||
-          result.response.error == spring::network::TransportError::timeout);
+bool connection_failure(const TransportResult& result) {
+  return !result.connection_established && (result.response.error == TransportError::unavailable ||
+                                            result.response.error == TransportError::dns ||
+                                            result.response.error == TransportError::tls ||
+                                            result.response.error == TransportError::connection ||
+                                            result.response.error == TransportError::timeout);
 }
 
-spring::network::Response cancelled_response(spring::network::Link link) {
-  spring::network::Response response{};
+Response error_response(TransportError error, std::string detail, Link link = Link::unavailable) {
+  Response response{};
   response.link = link;
-  response.error = spring::network::TransportError::cancelled;
-  response.error_detail = "request cancelled";
+  response.error = error;
+  response.error_detail = std::move(detail);
   return response;
 }
 
-void invoke_completion(PendingRequest request, spring::network::Response response) {
-  if (request.completion) {
-    request.completion(request.id, std::move(response));
+Response dispatch(PendingRequest& work) {
+  if (!valid_request(work.request))
+    return error_response(TransportError::invalid_request, "invalid HTTP request");
+  const auto backends = registered_transports();
+  auto selected = Link::unavailable;
+  auto* transport = static_cast<HttpTransport*>(nullptr);
+  for (std::size_t i = 0; i < backends.size(); ++i) {
+    if (backends[i] && backends[i]->available()) {
+      selected = i == 0 ? Link::wifi : Link::cellular;
+      transport = backends[i];
+      break;
+    }
   }
+  if (!transport)
+    return error_response(TransportError::unavailable, "no network link available");
+  const auto began = Clock::now();
+  auto result = transport->perform(work.request, CancellationToken{work.cancelled});
+  result.response.link = selected;
+  if (selected == Link::wifi && connection_failure(result) && !work.cancelled->load() &&
+      backends[1] && backends[1]->available()) {
+    const auto elapsed =
+        std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - began);
+    if (elapsed < work.request.options.timeout) {
+      work.request.options.timeout -= elapsed;
+      ESP_LOGW("network", "request=%llu fallback=cellular",
+               static_cast<unsigned long long>(work.id));
+      result = backends[1]->perform(work.request, CancellationToken{work.cancelled});
+      result.response.link = Link::cellular;
+    }
+  }
+  return std::move(result.response);
 }
 
 void worker_task(void*) {
   while (true) {
     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
     while (true) {
-      PendingRequest request;
+      PendingRequest work;
       {
         std::lock_guard lock(state_mutex);
-        if (pending.empty()) {
-          active_request.reset();
+        if (pending.empty())
           break;
-        }
-        request = std::move(pending.front());
+        work = std::move(pending.front());
         pending.pop_front();
-        active_request = request;
+        active = ActiveRequest{work.id, work.cancelled};
       }
-
-      if (request.cancelled->load()) {
-        invoke_completion(std::move(request), cancelled_response(Link::unavailable));
-        continue;
-      }
-
-      Link selected{Link::unavailable};
-      auto* transport = static_cast<spring::network::HttpTransport*>(nullptr);
+      Response response;
+      if (!work.cancelled->load())
+        response = dispatch(work);
       {
+        // Removing the active ID and checking cancellation form one completion boundary.
         std::lock_guard lock(state_mutex);
-        if (transports[0] != nullptr && transports[0]->available()) {
-          selected = Link::wifi;
-          transport = transports[0];
-        } else if (transports[1] != nullptr && transports[1]->available()) {
-          selected = Link::cellular;
-          transport = transports[1];
+        if (work.cancelled->load()) {
+          const auto link = response.link;
+          response = error_response(TransportError::cancelled, "request cancelled", link);
         }
+        active.reset();
       }
-
-      spring::network::TransportResult result{};
-      if (transport == nullptr) {
-        result.response.link = Link::unavailable;
-        result.response.error = spring::network::TransportError::unavailable;
-        result.response.error_detail = "no network transport is available";
-      } else {
-        result = transport->perform(request.request,
-                                    spring::network::CancellationToken{request.cancelled});
-        result.response.link = selected;
-        if (selected == Link::wifi && is_connection_failure(result) &&
-            !request.cancelled->load()) {
-          auto* cellular = transport_for(Link::cellular);
-          if (cellular != nullptr && cellular->available()) {
-            ESP_LOGW(kTag, "request %llu falling back from Wi-Fi to cellular",
-                     static_cast<unsigned long long>(request.id));
-            result = cellular->perform(request.request,
-                                       spring::network::CancellationToken{request.cancelled});
-            result.response.link = Link::cellular;
-          }
-        }
-      }
-
-      if (request.cancelled->load()) {
-        result.response = cancelled_response(result.response.link);
-      }
-      invoke_completion(std::move(request), std::move(result.response));
-      {
-        std::lock_guard lock(state_mutex);
-        active_request.reset();
+      try {
+        work.completion(work.id, std::move(response));
+      } catch (...) {
+        ESP_LOGE("network", "completion threw: request=%llu",
+                 static_cast<unsigned long long>(work.id));
       }
     }
   }
 }
-
-spring::network::RequestId submit(spring::network::Request request,
-                                  spring::network::Completion completion) {
-  if (request.url.empty() || !completion || request.options.timeout.count() <= 0) {
-    return 0;
-  }
-  const auto id = next_id.fetch_add(1);
-  PendingRequest pending_request{id, std::move(request), std::move(completion),
-                                 std::make_shared<std::atomic_bool>(false)};
-  {
-    std::lock_guard lock(state_mutex);
-    pending.push_back(std::move(pending_request));
-  }
-  if (worker_handle != nullptr) {
-    xTaskNotifyGive(worker_handle);
-  }
-  return id;
-}
-
 } // namespace
 
 bool spring::network::Response::ok() const noexcept {
   return error == TransportError::none && status >= 200 && status < 300;
 }
-
 spring::network::CancellationToken::CancellationToken(
     std::shared_ptr<std::atomic_bool> state) noexcept
     : state_(std::move(state)) {}
-
 bool spring::network::CancellationToken::cancelled() const noexcept {
-  return state_ != nullptr && state_->load();
+  return state_ && state_->load();
 }
-
 void spring::network::start() {
-  if (worker_handle != nullptr) {
+  std::lock_guard lock(state_mutex);
+  if (worker_handle)
+    return;
+  if (xTaskCreate(worker_task, "network", 12288, nullptr, 5, &worker_handle) != pdPASS) {
+    worker_handle = nullptr;
+    ESP_LOGE("network", "worker allocation failed");
     return;
   }
-  xTaskCreate(worker_task, "network", 8192, nullptr, 5, &worker_handle);
-  if (worker_handle != nullptr) {
-    xTaskNotifyGive(worker_handle);
-  }
-  ESP_LOGI(kTag, "network service ready; Wi-Fi preferred with cellular fallback");
+  xTaskNotifyGive(worker_handle);
 }
-
 void spring::network::register_transport(Link link, HttpTransport& transport) {
-  if (link == Link::unavailable) {
+  if (link == Link::unavailable)
     return;
-  }
   std::lock_guard lock(state_mutex);
-  transports[index_for(link)] = &transport;
-  if (worker_handle != nullptr) {
-    xTaskNotifyGive(worker_handle);
-  }
+  transports[link == Link::wifi ? 0 : 1] = &transport;
 }
-
 spring::network::RequestId spring::network::request(Request request, Completion completion) {
-  return submit(std::move(request), std::move(completion));
-}
-
-bool spring::network::cancel(RequestId request_id) {
-  if (request_id == 0) {
-    return false;
-  }
+  if (!completion)
+    return 0;
+  start();
   std::lock_guard lock(state_mutex);
-  for (auto& request : pending) {
-    if (request.id == request_id) {
-      request.cancelled->store(true);
-      if (worker_handle != nullptr) {
-        xTaskNotifyGive(worker_handle);
-      }
-      return true;
-    }
-  }
-  if (active_request.has_value() && active_request->id == request_id) {
-    active_request->cancelled->store(true);
-    return true;
+  if (!worker_handle)
+    return 0;
+  const auto id = next_id++;
+  pending.push_back(
+      {id, std::move(request), std::move(completion), std::make_shared<std::atomic_bool>(false)});
+  xTaskNotifyGive(worker_handle);
+  return id;
+}
+bool spring::network::cancel(RequestId id) {
+  std::lock_guard lock(state_mutex);
+  if (active && active->id == id)
+    return !active->cancelled->exchange(true);
+  for (auto& work : pending) {
+    if (work.id == id)
+      return !work.cancelled->exchange(true);
   }
   return false;
 }
-
-spring::network::RequestId spring::network::get(Request request, Completion completion) {
-  request.method = Method::get;
-  return submit(std::move(request), std::move(completion));
+spring::network::RequestId spring::network::get(Request value, Completion done) {
+  value.method = Method::get;
+  return request(std::move(value), std::move(done));
 }
-
-spring::network::RequestId spring::network::post(Request request, Completion completion) {
-  request.method = Method::post;
-  return submit(std::move(request), std::move(completion));
+spring::network::RequestId spring::network::post(Request value, Completion done) {
+  value.method = Method::post;
+  return request(std::move(value), std::move(done));
 }
-
-spring::network::RequestId spring::network::put(Request request, Completion completion) {
-  request.method = Method::put;
-  return submit(std::move(request), std::move(completion));
+spring::network::RequestId spring::network::put(Request value, Completion done) {
+  value.method = Method::put;
+  return request(std::move(value), std::move(done));
 }
-
-spring::network::RequestId spring::network::patch(Request request, Completion completion) {
-  request.method = Method::patch;
-  return submit(std::move(request), std::move(completion));
+spring::network::RequestId spring::network::patch(Request value, Completion done) {
+  value.method = Method::patch;
+  return request(std::move(value), std::move(done));
 }
-
-spring::network::RequestId spring::network::del(Request request, Completion completion) {
-  request.method = Method::delete_;
-  return submit(std::move(request), std::move(completion));
+spring::network::RequestId spring::network::del(Request value, Completion done) {
+  value.method = Method::delete_;
+  return request(std::move(value), std::move(done));
 }
-
 spring::network::Link spring::network::active_link() {
-  std::lock_guard lock(state_mutex);
-  if (transports[0] != nullptr && transports[0]->available()) {
+  const auto backends = registered_transports();
+  if (backends[0] && backends[0]->available())
     return Link::wifi;
-  }
-  if (transports[1] != nullptr && transports[1]->available()) {
+  if (backends[1] && backends[1]->available())
     return Link::cellular;
-  }
   return Link::unavailable;
 }

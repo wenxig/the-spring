@@ -1,11 +1,11 @@
 # the-spring ESP32-P4 核心固件
 
-面向 Waveshare ESP32-P4-Module-DEV-KIT 的 ESP-IDF 子项目。FreeRTOS 负责任务调度，LVGL 9 负责 UI，SSD1683 电子纸由 `esp_epaper` 驱动，EC600MCNLE 通过 UART1/GPIO0-GPIO1 由 `esp_modem` 协调 AT 命令。
+面向 Waveshare ESP32-P4-Module-DEV-KIT 的 ESP-IDF 子项目。FreeRTOS 负责任务调度，LVGL 9 负责 UI，SSD1683 电子纸由 `esp_epaper` 驱动，EC600MCNLE 默认通过 USB Host CDC-ACM 与 `esp_modem` PPP 协调 AT 命令；UART1/GPIO0-GPIO1 保留为 Kconfig 兼容路径。
 
 ## 当前硬件映射
 
 - 电子纸：BUSY/RES/D-C/CS/SCK/SDI = GPIO22/21/6/5/2/3
-- EC600X UART1：TX/RX = GPIO0/GPIO1
+- EC600X：默认 USB Host CDC-ACM；兼容 UART1 TX/RX = GPIO0/GPIO1
 - 按键 S1-S8：GPIO4/20/23/26/27/46/47/48，active-low 上拉
 
 按键语义、数字时钟和休眠行为见 `docs/ui-input-clock.md`。
@@ -47,3 +47,7 @@ idf.py -C packages/esp32p4 menuconfig
 画面方向和刷新波形，再启用业务页面。
 
 组件版本和待讨论技术决策见 `docs/decisions.md`。
+
+## 网络验收
+
+蜂窝 USB 配置默认使用 VID `0x2C7C`、PID `0x6002`、CDC 接口 3；如 EC600MCNLE 固件暴露不同接口，使用 `CONFIG_SPRING_MODEM_USB_*` 调整。板上电并枚举 USB 后，日志应出现 PPP IPv4 和蜂窝 link up。业务请求通过 `spring::network::get/post/put/patch/del` 发起，天气在启动时刷新并每 10 分钟轮询。

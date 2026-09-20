@@ -85,6 +85,7 @@ extern "C" void app_main() {
   spring::storage::ui_assets_ready();
   spring::wifi::start();
   spring::network::register_transport(spring::network::Link::wifi, spring::wifi::transport());
+  spring::network::register_transport(spring::network::Link::cellular, spring::modem::transport());
   spring::network::start();
   spring::weather::start();
   spring::app::start_weather_polling();

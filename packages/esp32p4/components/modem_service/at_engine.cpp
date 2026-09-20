@@ -1,179 +1,298 @@
 #include "at_engine.hpp"
+
+#include "cxx_include/esp_modem_api.hpp"
+#include "cxx_include/esp_modem_dte.hpp"
+#include "cxx_include/esp_modem_usb_api.hpp"
+#include "esp_event.h"
 #include "esp_log.h"
+#include "esp_modem_config.h"
+#include "esp_modem_usb_config.h"
+#include "esp_netif.h"
+#include "esp_netif_ppp.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "freertos/semphr.h"
-#include "driver/uart.h"
-#include <string>
-#include <algorithm>
+#include "http_transport.hpp"
+#include "sdkconfig.h"
+
+#include <atomic>
+#include <chrono>
+#include <cstdio>
+#include <memory>
+#include <mutex>
 
 namespace {
+using namespace spring::modem;
 constexpr char kTag[] = "modem";
-constexpr uart_port_t kUart = UART_NUM_1;
-constexpr std::size_t kUartBufferSize = 4096;
+Snapshot state{};
+std::mutex state_mutex;
+// Owns DCE lifetime, AT transactions, mode transitions and cellular HTTP operations.
+std::timed_mutex transaction_mutex;
+std::atomic_bool started{};
+std::atomic_bool online{};
+std::atomic_bool disconnected{};
+std::atomic<esp_netif_t*> ppp_netif{};
+std::unique_ptr<esp_modem::DCE> dce;
 
-spring::modem::Snapshot state{};
-SemaphoreHandle_t command_lock = nullptr;
-bool uart_ready = false;
-
-bool read_byte(std::uint8_t& byte, std::uint32_t timeout_ms) {
-  return uart_read_bytes(kUart, &byte, 1, pdMS_TO_TICKS(timeout_ms)) == 1;
+void link_state(bool connected, int error = 0) {
+  online.store(connected);
+  std::lock_guard lock(state_mutex);
+  state.ppp_has_ip = connected;
+  state.ppp_error = error;
+  ++state.revision;
 }
-
-spring::modem::Result transact(std::string_view command, std::string_view payload,
-                               std::uint32_t timeout_ms, std::string* response) {
-  if (command.empty() || !uart_ready) return spring::modem::Result::transport_error;
-  if (command_lock == nullptr || xSemaphoreTake(command_lock, pdMS_TO_TICKS(timeout_ms)) != pdTRUE)
-    return spring::modem::Result::timeout;
-  if (response != nullptr) response->clear();
-  uart_flush_input(kUart);
-  std::string wire{command};
-  wire.append("\r\n");
-  ESP_LOGI(kTag, "TX: %.*s", static_cast<int>(command.size()), command.data());
-  if (uart_write_bytes(kUart, wire.data(), wire.size()) < 0 ||
-      uart_wait_tx_done(kUart, pdMS_TO_TICKS(1000)) != ESP_OK) {
-    xSemaphoreGive(command_lock);
-    return spring::modem::Result::transport_error;
-  }
-  const auto deadline = xTaskGetTickCount() + pdMS_TO_TICKS(timeout_ms);
-  std::string line;
-  std::uint8_t byte{};
-  bool payload_sent = payload.empty();
-  bool final_ok_seen = false;
-  bool async_result_seen = false;
-  const auto asynchronous = command.starts_with("AT+QHTTPGET") || command.starts_with("AT+QNTP");
-  while (xTaskGetTickCount() < deadline) {
-    if (!read_byte(byte, 50)) continue;
-    if (byte == '\n') {
-      ESP_LOGI(kTag, "RX line: %s", line.c_str());
-      if (line == "CONNECT" && !payload_sent) {
-        if (uart_write_bytes(kUart, payload.data(), payload.size()) < 0 ||
-            uart_wait_tx_done(kUart, pdMS_TO_TICKS(1000)) != ESP_OK) {
-          xSemaphoreGive(command_lock);
-          return spring::modem::Result::transport_error;
-        }
-        payload_sent = true;
-      }
-      if (response != nullptr && line != "OK") {
-        response->append(line);
-        response->push_back('\n');
-      }
-      if (line.starts_with("+QHTTPGET:") || line.starts_with("+QNTP:")) async_result_seen = true;
-      if (spring::modem::is_urc(line)) spring::modem::consume_urc(line);
-      if (asynchronous && final_ok_seen && async_result_seen) {
-        xSemaphoreGive(command_lock);
-        return spring::modem::Result::ok;
-      }
-      if (spring::modem::is_final_ok(line)) {
-        final_ok_seen = true;
-        if (!asynchronous || async_result_seen) {
-          xSemaphoreGive(command_lock);
-          return spring::modem::Result::ok;
-        }
-      }
-      if (spring::modem::is_final_error(line)) {
-        xSemaphoreGive(command_lock);
-        return spring::modem::Result::rejected;
-      }
-      line.clear();
-    } else if (byte != '\r') {
-      line.push_back(static_cast<char>(byte));
+void on_event(void*, esp_event_base_t base, int32_t id, void* data) {
+  if (base == IP_EVENT && id == IP_EVENT_PPP_GOT_IP) {
+    const auto* event = static_cast<ip_event_got_ip_t*>(data);
+    if (event && event->esp_netif == ppp_netif.load()) {
+      link_state(true);
+      ESP_LOGI(kTag, "PPP IPv4=" IPSTR, IP2STR(&event->ip_info.ip));
     }
+  } else if (base == IP_EVENT && id == IP_EVENT_PPP_LOST_IP) {
+    link_state(false);
+  } else if (base == NETIF_PPP_STATUS && id > NETIF_PPP_ERRORNONE && id < NETIF_PP_PHASE_OFFSET) {
+    link_state(false, static_cast<int>(id));
   }
-  xSemaphoreGive(command_lock);
-  return spring::modem::Result::timeout;
 }
 
-}  // namespace
+void process_lines(std::string_view text) {
+  while (!text.empty()) {
+    const auto end = text.find('\n');
+    auto line = text.substr(0, end);
+    while (!line.empty() && (line.front() == '\r' || line.front() == ' '))
+      line.remove_prefix(1);
+    while (!line.empty() && (line.back() == '\r' || line.back() == ' '))
+      line.remove_suffix(1);
+    if (spring::modem::is_urc(line))
+      spring::modem::consume_urc(line);
+    if (end == std::string_view::npos)
+      break;
+    text.remove_prefix(end + 1);
+  }
+}
 
-void spring::modem::start() {
-  command_lock = xSemaphoreCreateMutex();
-  if (command_lock == nullptr) return;
-  uart_config_t config{};
-  config.baud_rate = 115200;
-  config.data_bits = UART_DATA_8_BITS;
-  config.parity = UART_PARITY_DISABLE;
-  config.stop_bits = UART_STOP_BITS_1;
-  config.flow_ctrl = UART_HW_FLOWCTRL_DISABLE;
-  config.source_clk = UART_SCLK_DEFAULT;
-  if (uart_param_config(kUart, &config) != ESP_OK ||
-      uart_set_pin(kUart, 0, 1, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE) != ESP_OK ||
-      uart_driver_install(kUart, kUartBufferSize, 0, 0, nullptr, 0) != ESP_OK) {
-    ESP_LOGE(kTag, "EC600X UART1 initialization failed");
+Result command_locked(std::string_view command, std::uint32_t timeout, std::string& response) {
+  response.clear();
+  if (!dce || disconnected.load())
+    return Result::transport_error;
+  const auto result = dce->command(
+      std::string{command} + "\r\n",
+      [&](std::uint8_t* data, std::size_t size) {
+        response.assign(reinterpret_cast<const char*>(data), size);
+        if (response.find("\nOK\r") != std::string::npos || response == "OK\r\n")
+          return esp_modem::command_result::OK;
+        if (response.find("\nERROR\r") != std::string::npos ||
+            response.find("+CME ERROR:") != std::string::npos)
+          return esp_modem::command_result::FAIL;
+        return esp_modem::command_result::TIMEOUT;
+      },
+      timeout);
+  process_lines(response);
+  if (result == esp_modem::command_result::OK)
+    return Result::ok;
+  if (result == esp_modem::command_result::TIMEOUT)
+    return Result::timeout;
+  return Result::rejected;
+}
+
+std::shared_ptr<esp_modem::DTE> create_dte() {
+#if CONFIG_SPRING_MODEM_USE_UART
+  esp_modem_dte_config_t config = ESP_MODEM_DTE_DEFAULT_CONFIG();
+  config.uart_config.tx_io_num = 0;
+  config.uart_config.rx_io_num = 1;
+  config.uart_config.rts_io_num = UART_PIN_NO_CHANGE;
+  config.uart_config.cts_io_num = UART_PIN_NO_CHANGE;
+  return esp_modem::create_uart_dte(&config);
+#else
+  esp_modem_usb_term_config usb{};
+  usb.vid = CONFIG_SPRING_MODEM_USB_VID;
+  usb.pid = CONFIG_SPRING_MODEM_USB_PID;
+  usb.interface_idx = CONFIG_SPRING_MODEM_USB_INTERFACE;
+  usb.secondary_interface_idx = CONFIG_SPRING_MODEM_USB_SECONDARY_INTERFACE;
+  usb.timeout_ms = 5000;
+  usb.install_usb_host = true;
+  const esp_modem_dte_config_t config = ESP_MODEM_DTE_DEFAULT_USB_CONFIG(usb);
+  return esp_modem::create_usb_dte(&config);
+#endif
+}
+
+void modem_task(void*) {
+  const auto netif_result = esp_netif_init();
+  const auto event_result = esp_event_loop_create_default();
+  if (netif_result != ESP_OK || (event_result != ESP_OK && event_result != ESP_ERR_INVALID_STATE)) {
+    ESP_LOGE(kTag, "network runtime initialization failed");
+    started.store(false);
+    vTaskDelete(nullptr);
     return;
   }
-  uart_ready = true;
-  ESP_LOGI(kTag, "AT engine ready (UART1 TX=GPIO0 RX=GPIO1, 115200 8N1)");
+  esp_netif_config_t config = ESP_NETIF_DEFAULT_PPP();
+  auto* netif = esp_netif_new(&config);
+  ppp_netif.store(netif);
+  if (!netif ||
+      esp_event_handler_register(IP_EVENT, IP_EVENT_PPP_GOT_IP, on_event, nullptr) != ESP_OK ||
+      esp_event_handler_register(IP_EVENT, IP_EVENT_PPP_LOST_IP, on_event, nullptr) != ESP_OK ||
+      esp_event_handler_register(NETIF_PPP_STATUS, ESP_EVENT_ANY_ID, on_event, nullptr) != ESP_OK) {
+    ESP_LOGE(kTag, "PPP initialization failed");
+    vTaskDelete(nullptr);
+    return;
+  }
+  while (true) {
+    {
+      std::lock_guard lock(transaction_mutex);
+      if (disconnected.exchange(false)) {
+        link_state(false);
+        dce.reset();
+      }
+      if (!dce) {
+        auto dte = create_dte();
+        if (dte) {
+          dte->set_error_cb([](esp_modem::terminal_error error) {
+            link_state(false, static_cast<int>(error) + 100);
+            disconnected.store(true);
+          });
+          const esp_modem_dce_config_t dce_config =
+              ESP_MODEM_DCE_DEFAULT_CONFIG(CONFIG_SPRING_MODEM_APN);
+          dce = esp_modem::create_generic_dce(&dce_config, std::move(dte), netif);
+          if (dce) {
+            dce->set_urc([](std::uint8_t* data, std::size_t size) {
+              process_lines({reinterpret_cast<const char*>(data), size});
+              return esp_modem::command_result::TIMEOUT;
+            });
+          }
+        }
+      }
+      if (dce && !online.load()) {
+        if (dce->get_mode() == esp_modem::modem_mode::DATA_MODE)
+          (void)dce->set_mode(esp_modem::modem_mode::COMMAND_MODE);
+        std::string response;
+        if (command_locked("AT", 1500, response) == Result::ok) {
+          (void)command_locked("ATE0", 1500, response);
+          (void)command_locked("AT+CEREG=2", 1500, response);
+          (void)command_locked("AT+CEREG?", 1500, response);
+          (void)command_locked("AT+CGATT?", 1500, response);
+          if (spring::modem::snapshot().registered &&
+              !dce->set_mode(esp_modem::modem_mode::DATA_MODE))
+            link_state(false, -1);
+        }
+      }
+    }
+    vTaskDelay(pdMS_TO_TICKS(30'000));
+  }
 }
 
-spring::modem::Result spring::modem::execute(std::string_view command, std::uint32_t timeout_ms) {
-  return transact(command, {}, timeout_ms, nullptr);
+spring::network::TransportResult transport_error(spring::network::TransportError error) {
+  spring::network::TransportResult result{};
+  result.response.error = error;
+  return result;
 }
 
-spring::modem::Result spring::modem::execute_capture(std::string_view command,
-                                                      std::uint32_t timeout_ms, std::string& response) {
-  return transact(command, {}, timeout_ms, &response);
-}
+class CellularTransport final : public spring::network::HttpTransport {
+public:
+  bool available() const noexcept override { return online.load() && !disconnected.load(); }
+  spring::network::TransportResult
+  perform(const spring::network::Request& request,
+          spring::network::CancellationToken cancellation) override {
+    const auto began = std::chrono::steady_clock::now();
+    std::unique_lock lock(transaction_mutex, std::defer_lock);
+    while (!lock.try_lock_for(std::chrono::milliseconds{20})) {
+      if (cancellation.cancelled())
+        return transport_error(spring::network::TransportError::cancelled);
+      if (std::chrono::steady_clock::now() - began >= request.options.timeout)
+        return transport_error(spring::network::TransportError::timeout);
+    }
+    if (!available())
+      return transport_error(spring::network::TransportError::unavailable);
+    auto remaining = request;
+    remaining.options.timeout -= std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - began);
+    return spring::http::perform(remaining, std::move(cancellation), ppp_netif.load());
+  }
+};
+CellularTransport cellular;
+} // namespace
 
-spring::modem::Result spring::modem::execute_with_payload(std::string_view command,
-                                                           std::string_view payload,
-                                                           std::uint32_t timeout_ms, std::string& response) {
-  return transact(command, payload, timeout_ms, &response);
+void spring::modem::start() {
+  if (started.exchange(true))
+    return;
+  if (xTaskCreate(modem_task, "modem", 8192, nullptr, 4, nullptr) != pdPASS) {
+    started.store(false);
+    ESP_LOGE(kTag, "modem task allocation failed");
+  }
 }
-
-spring::modem::HttpResponse spring::modem::http_get(std::string_view url) {
-  if (url.empty()) return {.status = -1};
+Result spring::modem::execute(std::string_view command, std::uint32_t timeout) {
   std::string response;
-  const auto url_command = "AT+QHTTPURL=" + std::to_string(url.size()) + ",10";
-  if (execute_with_payload(url_command, url, 15000, response) != Result::ok) return {.status = -1};
-  response.clear();
-  if (execute_capture("AT+QHTTPGET=60", 70000, response) != Result::ok) return {.status = -1};
-  const auto status_start = response.find("+QHTTPGET:");
-  int status{};
-  if (status_start == std::string::npos ||
-      std::sscanf(response.c_str() + status_start, "+QHTTPGET: %d", &status) != 1) return {.status = -1};
-  if (status != 200) return {.status = status};
-  response.clear();
-  if (execute_capture("AT+QHTTPREAD=60", 70000, response) != Result::ok) return {.status = -1};
-  const auto begin = response.find('{');
-  const auto end = response.rfind('}');
-  if (begin == std::string::npos || end < begin) return {.status = -1};
-  return {.status = 200, .body = response.substr(begin, end - begin + 1)};
+  return execute_capture(command, timeout, response);
 }
-
+Result spring::modem::execute_capture(std::string_view command, std::uint32_t timeout,
+                                      std::string& response) {
+  if (command.empty() || timeout == 0)
+    return Result::rejected;
+  std::unique_lock lock(transaction_mutex, std::defer_lock);
+  if (!lock.try_lock_for(std::chrono::milliseconds{timeout}))
+    return Result::timeout;
+  if (!dce || disconnected.load())
+    return Result::transport_error;
+#if CONFIG_SPRING_MODEM_USE_UART
+  constexpr auto single_port = true;
+#else
+  constexpr auto single_port = CONFIG_SPRING_MODEM_USB_SECONDARY_INTERFACE < 0;
+#endif
+  const auto resume = single_port && dce->get_mode() == esp_modem::modem_mode::DATA_MODE;
+  if (resume && dce->pause_netif(true) != esp_modem::command_result::OK) {
+    disconnected.store(true);
+    link_state(false, -2);
+    return Result::transport_error;
+  }
+  const auto result = command_locked(command, timeout, response);
+  if (resume && dce->pause_netif(false) != esp_modem::command_result::OK) {
+    link_state(false, -3);
+    disconnected.store(true);
+  }
+  return result;
+}
 void spring::modem::set_location(double latitude, double longitude) {
+  std::lock_guard lock(state_mutex);
   state.latitude = latitude;
   state.longitude = longitude;
   state.location_valid = true;
   ++state.revision;
 }
-
-spring::modem::Snapshot spring::modem::snapshot() { return state; }
-
+Snapshot spring::modem::snapshot() {
+  std::lock_guard lock(state_mutex);
+  return state;
+}
+bool spring::modem::data_link_available() { return cellular.available(); }
+esp_netif_obj* spring::modem::data_netif() { return ppp_netif.load(); }
+spring::network::HttpTransport& spring::modem::transport() { return cellular; }
 void spring::modem::consume_urc(std::string_view line) {
+  std::lock_guard lock(state_mutex);
   if (line.starts_with("+CEREG:")) {
-    const auto comma = line.find(',');
-    const auto status = comma == std::string_view::npos ? line.substr(7) : line.substr(comma + 1);
-    state.registered = status.starts_with("1") || status.starts_with("5");
+    int first{};
+    int second{};
+    const auto text = std::string{line};
+    const auto count = std::sscanf(text.c_str(), "+CEREG: %d,%d", &first, &second);
+    if (count > 0) {
+      const auto status = count == 2 ? second : first;
+      state.registered = status == 1 || status == 5;
+    }
   } else if (line.starts_with("+CGATT:")) {
     state.data_attached = line.find('1') != std::string_view::npos;
-  } else if (line.starts_with("VOICE CALL: BEGIN")) {
+  } else if (line.starts_with("VOICE CALL: BEGIN"))
     state.call_active = true;
-  } else if (line.starts_with("VOICE CALL: END")) {
+  else if (line.starts_with("VOICE CALL: END"))
     state.call_active = false;
-  }
+  else if (line.starts_with("+CSQ:")) {
+    const auto text = std::string{line};
+    (void)std::sscanf(text.c_str(), "+CSQ: %d", &state.signal_quality);
+  } else
+    return;
   ++state.revision;
 }
-
 bool spring::modem::is_urc(std::string_view line) {
-  return line.starts_with("+CEREG:") || line.starts_with("+CSQ:") ||
+  return line.starts_with("+CEREG:") || line.starts_with("+CGATT:") || line.starts_with("+CSQ:") ||
          line.starts_with("+CLIP:") || line.starts_with("VOICE CALL:") ||
-         line.starts_with("+CMTI:") || line.starts_with("+QHTTPGET:") ||
-         line.starts_with("+QNTP:");
+         line.starts_with("+CMTI:");
 }
-
 bool spring::modem::is_final_ok(std::string_view line) { return line == "OK"; }
-
 bool spring::modem::is_final_error(std::string_view line) {
   return line == "ERROR" || line.starts_with("+CME ERROR:");
 }
